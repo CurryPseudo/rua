@@ -38,12 +38,12 @@ impl CallInfo {
 
 impl VM {
     pub fn new() -> Self {
-        Self{
+        Self {
             stack: Vec::new(),
             constants: Vec::new(),
             instructions: Vec::new(),
             current_instruction: 0,
-            up_value: Vec::new()
+            up_value: Vec::new(),
         }
     }
     pub fn import_builtin_function(&mut self) {
@@ -109,5 +109,13 @@ impl VM {
     }
     fn get_up_value(&self, index: u32) -> &Table {
         &self.up_value[self.up_value.len() - 1 - index as usize]
+    }
+}
+
+impl VM {
+    pub fn add_function(&mut self, function_stack: FunctionStack) {
+        self.stack.push(CallInfo::new(function_stack.variable_count as usize, self.constants.len(), self.instructions.len()));
+        self.constants.extend(function_stack.constants.into_iter());
+        self.instructions.extend(function_stack.instructions.into_iter());
     }
 }
