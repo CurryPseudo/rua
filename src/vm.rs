@@ -117,5 +117,6 @@ impl VM {
         self.stack.push(CallInfo::new(function_stack.variable_count as usize, self.constants.len(), self.instructions.len()));
         self.constants.extend(function_stack.constants.into_iter());
         self.instructions.extend(function_stack.instructions.into_iter());
+
     }
 }

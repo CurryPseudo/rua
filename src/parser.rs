@@ -1,3 +1,4 @@
+use nom::sequence::delimited;
 use crate::*;
 use nom::bytes::complete::take_while1;
 use nom::character::complete::char;
@@ -20,16 +21,13 @@ fn number(input: &str) -> IResult<&str, i32> {
     Ok((input, sum))
 }
 fn space_and_line(input: &str) -> IResult<&str, ()> {
-    //let (input, _) = many0!(input, alt!(tag!(" ") | line_ending))?;
-    let (input, _) = many0!(input, line_ending)?;
+    let (input, _) = many0!(input, alt!(eof!() | tag!(" ") | line_ending))?;
     Ok((input, ()))
 }
 fn function(input: &str) -> IResult<&str, FunctionParseResult> {
     let name = take_while1(|c| c != '(');
-    let left_bracket = char('(');
-    let args = number;
-    let right_bracket = char(')');
-    let (input, (_, name, _, args, _)) = tuple((space_and_line, name, left_bracket, args, right_bracket))(input)?;
+    let args = delimited(char('('), number, char(')'));
+    let (input, (_, name, args)) = tuple((space_and_line, name, args))(input)?;
     Ok((input, FunctionParseResult { name, args }))
 }
 
