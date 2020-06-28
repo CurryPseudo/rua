@@ -5,6 +5,7 @@ pub use value::*;
 
 use crate::*;
 
+#[derive(Debug)]
 pub enum Instruction {
     GetTabUp(u32, u32, i32),
     LoadK(u32, u32),

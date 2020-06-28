@@ -1,9 +1,10 @@
-use nom::sequence::delimited;
 use crate::*;
+use core::ops::Deref;
 use nom::bytes::complete::take_while1;
 use nom::character::complete::char;
 use nom::character::complete::line_ending;
 use nom::multi::many0;
+use nom::sequence::delimited;
 use nom::sequence::tuple;
 use nom::IResult;
 use std::collections::HashMap;
@@ -22,6 +23,7 @@ fn number(input: &str) -> IResult<&str, i32> {
 }
 fn space_and_line(input: &str) -> IResult<&str, ()> {
     let (input, _) = many0!(input, alt!(eof!() | tag!(" ") | line_ending))?;
+    //let (input, _) = many0!(input, line_ending)?;
     Ok((input, ()))
 }
 fn function(input: &str) -> IResult<&str, FunctionParseResult> {
@@ -45,7 +47,7 @@ fn test_function() {
     );
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FunctionStack {
     pub variable_count: u32,
     free_variable_index: u32,
@@ -55,13 +57,11 @@ pub struct FunctionStack {
 }
 
 impl FunctionStack {
-    fn get_free_variable_index(&mut self) -> u32 {
-        if self.free_variable_index <= self.variable_count {
-            self.variable_count += 1;
+    fn get_free_variable_index_temp(&mut self, count: u32) -> u32 {
+        if self.free_variable_index + count > self.variable_count {
+            self.variable_count += count;
         }
-        let t = self.free_variable_index;
-        self.free_variable_index += 1;
-        t
+        self.free_variable_index
     }
     fn get_constant_index(&mut self, value: &Value) -> u32 {
         if let Some(index) = self.constant_map.get(value) {
@@ -78,14 +78,12 @@ impl FunctionStack {
     }
     fn add_statement(&mut self, function_parse_result: FunctionParseResult) {
         let name = Value::String(String::from(function_parse_result.name));
-        let r0 = self.get_free_variable_index();
+        let r = self.get_free_variable_index_temp(2);
         let k0 = self.get_constant_rk_index(&name) as i32;
-        self.instructions.push(Instruction::GetTabUp(r0, 0, k0));
-        let r1 = self.get_free_variable_index();
+        self.instructions.push(Instruction::GetTabUp(r, 0, k0));
         let k1 = self.get_constant_index(&Value::Number(function_parse_result.args));
-        self.instructions.push(Instruction::LoadK(r1, k1));
-        self.instructions.push(Instruction::Call(r0, 2, 1));
-        self.free_variable_index -= 2;
+        self.instructions.push(Instruction::LoadK(r + 1, k1));
+        self.instructions.push(Instruction::Call(r, 2, 1));
     }
     pub fn from_statements(input: &str) -> Self {
         let (_, parse_results) = many0(function)(input).unwrap();
