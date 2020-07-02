@@ -8,6 +8,7 @@ use nom::sequence::delimited;
 use nom::sequence::tuple;
 use nom::IResult;
 use std::collections::HashMap;
+mod lalr1;
 #[derive(Debug, PartialEq, Eq)]
 struct FunctionParseResult<'a> {
     name: &'a str,

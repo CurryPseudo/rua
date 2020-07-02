@@ -8,6 +8,8 @@ mod vm;
 pub use vm::*;
 mod parser;
 pub use parser::*;
+mod lexer;
+pub use lexer::*;
 
 fn main() {
     let mut vm = VM::new();
