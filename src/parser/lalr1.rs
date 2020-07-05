@@ -4,17 +4,22 @@ use std::hash::Hash;
 pub trait ToTerminalName {
     fn to_terminal_name(&self) -> &'static str;
 }
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 enum Symbol {
     NonTerminal(usize),
     Terminal(usize),
 }
 use Symbol::*;
-#[derive(Debug)]
-struct Grammar {
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+enum TerminalSymbol {
+    Normal(usize),
+    End
 }
+use TerminalSymbol::*;
+#[derive(Debug)]
+struct Grammar {}
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 struct Item {
     production_index: usize,
     position: usize,
@@ -68,7 +73,7 @@ impl Grammar {
                 Terminal(s) => terminals[*s],
             }
         };
-        debug!("{}", str_join(terminals.iter().map(|s| *s)));
+        debug!("{}", str_join(terminals.iter().copied()));
         for production in &productions {
             debug!(
                 "{} -> {}",
@@ -86,7 +91,7 @@ impl Grammar {
                         for z in &non_terminal_to_production[*y] {
                             let item = Item::new(*z, 0);
                             if !added.contains(&item) {
-                                temp.push(item.clone());
+                                temp.push(item);
                                 added.insert(item);
                             }
                         }
@@ -110,7 +115,7 @@ impl Grammar {
                     let mut current_goto = HashMap::new();
                     for i in c {
                         if let Some(symbol) = get_symbol(&i) {
-                            let v = current_goto.entry(symbol.clone()).or_insert_with(Vec::new);
+                            let v = current_goto.entry(symbol).or_insert_with(Vec::new);
                             v.push(i.acc());
                         }
                     }
@@ -126,8 +131,8 @@ impl Grammar {
                             goto_symbol.push(Vec::new());
                             to
                         };
-                        goto.insert((index, symbol.clone()), to);
-                        goto_symbol[index].push(symbol.clone());
+                        goto.insert((index, symbol), to);
+                        goto_symbol[index].push(symbol);
                     }
                 }
                 new_adds = temp;
@@ -165,9 +170,9 @@ impl Grammar {
         {
             let mut item_to_state = HashMap::new();
             for (i, g) in g.iter().enumerate() {
-                for item in &closure(g.clone()) {
+                for item in closure(g.clone()) {
                     item_to_state
-                        .entry(item.clone())
+                        .entry(item)
                         .or_insert_with(Vec::new)
                         .push(i);
                 }
@@ -175,20 +180,19 @@ impl Grammar {
             for i in 0..g.len() {
                 let mut added = HashSet::new();
                 for item in &g[i] {
-                    added.insert((None, item.clone()));
-                    let mut new_added = vec![(None, item.clone())];
+                    added.insert((None, *item));
+                    let mut new_added = vec![(None, *item)];
                     while !new_added.is_empty() {
                         let mut temp = HashSet::new();
                         for (option_terminals, item) in new_added {
                             if let Some(symbol) = get_symbol(&item) {
-                                let state = goto[&(i, symbol.clone())];
+                                let state = goto[&(i, symbol)];
                                 if let Some(terminal) = option_terminals {
                                     lalr_generated_terminal[state].insert(terminal);
                                 } else {
                                     lalr_propagated_path[i].insert(state);
                                 }
                             }
-                            //println!("{:?}", (&option_terminals, &item));
                             if let Some(NonTerminal(non_terminal)) = get_symbol(&item) {
                                 let look_forward_symbols =
                                     if let Some(symbol) = get_symbol(&item.clone().acc()) {
@@ -201,13 +205,11 @@ impl Grammar {
                                     } else {
                                         vec![option_terminals]
                                     };
-                                //println!("{:?}", look_forward_symbols);
                                 for look_forward_symbol in &look_forward_symbols {
                                     for production in &non_terminal_to_production[*non_terminal] {
                                         let to_add =
                                             (*look_forward_symbol, Item::new(*production, 0));
-                                        if added.insert(to_add.clone()) {
-                                            //println!("Add {:?}", &to_add);
+                                        if added.insert(to_add) {
                                             temp.insert(to_add);
                                         }
                                     }
@@ -219,25 +221,54 @@ impl Grammar {
                 }
             }
         }
+        let mut look_forward_terminal = vec![Vec::new(); g.len()];
+        {
+            let mut added = HashSet::new();
+            let mut to_added = Vec::new();
+            for (i, generateds) in lalr_generated_terminal.iter().enumerate() {
+                for generated in generateds {
+                    let t = (i, Normal(*generated));
+                    added.insert(t);
+                    to_added.push(t)
+                }
+            }
+            added.insert((0, End));
+            to_added.push((0, End));
+            while let Some((i, terminal)) = to_added.pop() {
+                look_forward_terminal[i].push(terminal);
+                for propagated in &lalr_propagated_path[i] {
+                    let t = (*propagated, terminal);
+                    if added.insert(t) {
+                        to_added.push(t);
+                    }
+                }
+            }
+        }
+
         debug!("LR(0):");
         for i in 0..g.len() {
             let items = &g[i];
             debug!("I{}", i);
-            for item in closure(items.clone()) {
+            let print_production = |item: &Item| {
                 let production = &productions[item.production_index];
-                let right = str_join((0..production.right.len() + 1).map(|i| {
-                    use std::cmp::Ordering::*;
-                    match i.cmp(&item.position) {
-                        Less => to_name(&production.right[i]),
-                        Equal => ".",
-                        Greater => to_name(&production.right[i - 1])
-                    }
-                }));
-                if items.iter().any(|x| x == &item) {
-                    debug!("{} -> {}", non_terminals[production.left], right);
-                } else {
-                    debug!("* {} -> {}", non_terminals[production.left], right);
-                }
+                format!(
+                    "{} -> {}",
+                    non_terminals[production.left],
+                    str_join((0..production.right.len() + 1).map(|i| {
+                        use std::cmp::Ordering::*;
+                        match i.cmp(&item.position) {
+                            Less => to_name(&production.right[i]),
+                            Equal => ".",
+                            Greater => to_name(&production.right[i - 1]),
+                        }
+                    }))
+                )
+            };
+            for item in items {
+                debug!("{}", print_production(item));
+            }
+            for item in closure(items.clone()).iter().filter(|item| !items.iter().any(|x| &x == item)) {
+                debug!("* {}", print_production(item));
             }
             for symbol in &goto_symbol[i] {
                 debug!(
@@ -262,6 +293,19 @@ impl Grammar {
                         .map(|state| format!("I{}", state))
                 )
             );
+            debug!(
+                "final {}",
+                str_join(
+                    look_forward_terminal[i]
+                        .iter()
+                        .map(|terminal| {
+                            match terminal {
+                                End => "$",
+                                Normal(t) => terminals[*t]
+                            }
+                        })
+                )
+            );
         }
         for i in 0..first.len() {
             debug!(
@@ -270,6 +314,7 @@ impl Grammar {
                 str_join(first[i].iter().map(|first| terminals[*first]))
             );
         }
+        
         Self {}
     }
 }
