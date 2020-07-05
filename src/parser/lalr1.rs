@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::hash::Hash;
 pub trait ToTerminalName {
     fn to_terminal_name(&self) -> &'static str;
@@ -13,17 +12,6 @@ enum Symbol {
 use Symbol::*;
 #[derive(Debug)]
 struct Grammar {
-    productions: Vec<Production>,
-    non_terminal_to_production: Vec<Vec<usize>>,
-    terminal_count: usize,
-    non_terminal_count: usize,
-    g: Vec<Vec<Item>>,
-    g_map: HashMap<Vec<Item>, usize>,
-    goto: HashMap<(usize, Symbol), usize>,
-    goto_symbol: Vec<Vec<Symbol>>,
-    first: Vec<Vec<usize>>,
-    lalr_generated_terminal: Vec<Vec<usize>>,
-    lalr_propagated_path: Vec<Vec<usize>>,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -48,8 +36,9 @@ impl Item {
 
 impl Grammar {
     fn new(
+        terminals: &[&'static str],
+        non_terminals: &[&'static str],
         split_productions: Vec<(usize, Vec<Vec<Symbol>>)>,
-        terminal_count: usize,
         non_terminal_count: usize,
     ) -> Self {
         let mut productions = Vec::new();
@@ -62,65 +51,98 @@ impl Grammar {
             }
             non_terminal_to_production.push(non_terminal_map);
         }
-        let mut r = Self {
-            productions,
-            non_terminal_to_production,
-            terminal_count,
-            non_terminal_count,
-            g: Vec::new(),
-            g_map: HashMap::new(),
-            goto: HashMap::new(),
-            goto_symbol: Vec::new(),
-            first: Vec::new(),
-            lalr_generated_terminal: Vec::new(),
-            lalr_propagated_path: Vec::new(),
+        let mut g = Vec::new();
+        let mut g_map = HashMap::new();
+        let mut goto_symbol = Vec::new();
+        let get_symbol = |item: &Item| -> Option<&Symbol> {
+            let production = &productions[item.production_index];
+            if item.position < production.right.len() {
+                Some(&production.right[item.position])
+            } else {
+                None
+            }
         };
+        let to_name = |symbol: &Symbol| -> &'static str {
+            match symbol {
+                NonTerminal(s) => non_terminals[*s],
+                Terminal(s) => terminals[*s],
+            }
+        };
+        debug!("{}", str_join(terminals.iter().map(|s| *s)));
+        for production in &productions {
+            debug!(
+                "{} -> {}",
+                non_terminals[production.left],
+                str_join(production.right.iter().map(|right| to_name(right)))
+            );
+        }
+        let closure = |items: Vec<Item>| -> Vec<Item> {
+            let mut added = items.clone().into_iter().collect::<HashSet<_>>();
+            let mut new_add = items;
+            while !new_add.is_empty() {
+                let mut temp = Vec::new();
+                for x in new_add {
+                    if let Some(NonTerminal(y)) = get_symbol(&x) {
+                        for z in &non_terminal_to_production[*y] {
+                            let item = Item::new(*z, 0);
+                            if !added.contains(&item) {
+                                temp.push(item.clone());
+                                added.insert(item);
+                            }
+                        }
+                    }
+                }
+                new_add = temp;
+            }
+            added.into_iter().collect()
+        };
+        let mut goto = HashMap::new();
         {
             let begin_production_closure = vec![Item::new(0, 0)];
-            r.g_map.insert(begin_production_closure.clone(), 0);
-            r.g.push(begin_production_closure.clone());
-            r.goto_symbol.push(Vec::new());
+            g_map.insert(begin_production_closure.clone(), 0);
+            g.push(begin_production_closure.clone());
+            goto_symbol.push(Vec::new());
             let mut new_adds = vec![(0, begin_production_closure)];
             while !new_adds.is_empty() {
                 let mut temp = Vec::new();
                 for (index, new_add) in new_adds {
-                    let c = r.closure(new_add);
-                    let mut goto = HashMap::new();
+                    let c = closure(new_add);
+                    let mut current_goto = HashMap::new();
                     for i in c {
-                        if let Some(symbol) = r.get_symbol(&i) {
-                            let v = goto.entry(symbol.clone()).or_insert_with(Vec::new);
+                        if let Some(symbol) = get_symbol(&i) {
+                            let v = current_goto.entry(symbol.clone()).or_insert_with(Vec::new);
                             v.push(i.acc());
                         }
                     }
-                    for (symbol, mut i) in goto {
+                    for (symbol, mut i) in current_goto {
                         i.sort();
-                        let to = if let Some(to) = r.g_map.get(&i) {
+                        let to = if let Some(to) = g_map.get(&i) {
                             *to
                         } else {
-                            let to = r.g.len();
+                            let to = g.len();
                             temp.push((to, i.clone()));
-                            r.g_map.insert(i.clone(), to);
-                            r.g.push(i);
-                            r.goto_symbol.push(Vec::new());
+                            g_map.insert(i.clone(), to);
+                            g.push(i);
+                            goto_symbol.push(Vec::new());
                             to
                         };
-                        r.goto.insert((index, symbol.clone()), to);
-                        r.goto_symbol[index].push(symbol.clone());
+                        goto.insert((index, symbol.clone()), to);
+                        goto_symbol[index].push(symbol.clone());
                     }
                 }
                 new_adds = temp;
             }
         }
+        let mut first = vec![HashSet::new(); non_terminal_count];
         {
-            let mut first_propagate_map = vec![HashSet::new(); r.non_terminal_count];
-            for production in &r.productions {
+            let mut first_propagate_map = vec![HashSet::new(); non_terminal_count];
+            for production in &productions {
                 if let Some(NonTerminal(s)) = production.right.first() {
                     first_propagate_map[*s].insert(production.left);
                 }
             }
-            let mut first = vec![HashSet::new(); r.non_terminal_count];
             let mut new_added = Vec::new();
-            for production in &r.productions {
+            for production in &productions {
                 if let Some(Terminal(s)) = production.right.first() {
                     new_added.push((production.left, *s));
                     first[production.left].insert(*s);
@@ -137,33 +159,29 @@ impl Grammar {
                 }
                 new_added = temp;
             }
-            r.first = first
-                .into_iter()
-                .map(|set| set.into_iter().collect())
-                .collect();
         }
+        let mut lalr_generated_terminal = vec![HashSet::new(); g.len()];
+        let mut lalr_propagated_path = vec![HashSet::new(); g.len()];
         {
             let mut item_to_state = HashMap::new();
-            for i in 0..r.g.len() {
-                for item in &r.closure(r.g[i].clone()) {
+            for (i, g) in g.iter().enumerate() {
+                for item in &closure(g.clone()) {
                     item_to_state
                         .entry(item.clone())
                         .or_insert_with(Vec::new)
                         .push(i);
                 }
             }
-            let mut lalr_generated_terminal = vec![HashSet::new(); r.g.len()];
-            let mut lalr_propagated_path = vec![HashSet::new(); r.g.len()];
-            for i in 0..r.g.len() {
+            for i in 0..g.len() {
                 let mut added = HashSet::new();
-                for item in &r.g[i] {
+                for item in &g[i] {
                     added.insert((None, item.clone()));
                     let mut new_added = vec![(None, item.clone())];
                     while !new_added.is_empty() {
                         let mut temp = HashSet::new();
                         for (option_terminals, item) in new_added {
-                            if let Some(symbol) = r.get_symbol(&item) {
-                                let state = r.goto[&(i, symbol.clone())];
+                            if let Some(symbol) = get_symbol(&item) {
+                                let state = goto[&(i, symbol.clone())];
                                 if let Some(terminal) = option_terminals {
                                     lalr_generated_terminal[state].insert(terminal);
                                 } else {
@@ -171,12 +189,12 @@ impl Grammar {
                                 }
                             }
                             //println!("{:?}", (&option_terminals, &item));
-                            if let Some(NonTerminal(non_terminal)) = r.get_symbol(&item) {
+                            if let Some(NonTerminal(non_terminal)) = get_symbol(&item) {
                                 let look_forward_symbols =
-                                    if let Some(symbol) = r.get_symbol(&item.clone().acc()) {
+                                    if let Some(symbol) = get_symbol(&item.clone().acc()) {
                                         match symbol {
                                             NonTerminal(s) => {
-                                                r.first[*s].iter().map(|s| Some(*s)).collect()
+                                                first[*s].iter().map(|s| Some(*s)).collect()
                                             }
                                             Terminal(s) => vec![Some(*s)],
                                         }
@@ -185,7 +203,7 @@ impl Grammar {
                                     };
                                 //println!("{:?}", look_forward_symbols);
                                 for look_forward_symbol in &look_forward_symbols {
-                                    for production in &r.non_terminal_to_production[*non_terminal] {
+                                    for production in &non_terminal_to_production[*non_terminal] {
                                         let to_add =
                                             (*look_forward_symbol, Item::new(*production, 0));
                                         if added.insert(to_add.clone()) {
@@ -200,120 +218,59 @@ impl Grammar {
                     }
                 }
             }
-            r.lalr_propagated_path = lalr_propagated_path
-                .into_iter()
-                .map(|set| set.into_iter().collect())
-                .collect();
-            r.lalr_generated_terminal = lalr_generated_terminal
-                .into_iter()
-                .map(|set| set.into_iter().collect())
-                .collect();
         }
-        r
-    }
-    fn get_symbol(&self, item: &Item) -> Option<&Symbol> {
-        let production = &self.productions[item.production_index];
-        if item.position < production.right.len() {
-            Some(&production.right[item.position])
-        } else {
-            None
-        }
-    }
-    fn closure(&self, items: Vec<Item>) -> Vec<Item> {
-        let mut added = items.clone().into_iter().collect::<HashSet<_>>();
-        let mut new_add = items;
-        while !new_add.is_empty() {
-            let mut temp = Vec::new();
-            for x in new_add {
-                if let Some(NonTerminal(y)) = self.get_symbol(&x) {
-                    for z in &self.non_terminal_to_production[*y] {
-                        let item = Item::new(*z, 0);
-                        if !added.contains(&item) {
-                            temp.push(item.clone());
-                            added.insert(item);
-                        }
+        debug!("LR(0):");
+        for i in 0..g.len() {
+            let items = &g[i];
+            debug!("I{}", i);
+            for item in closure(items.clone()) {
+                let production = &productions[item.production_index];
+                let right = str_join((0..production.right.len() + 1).map(|i| {
+                    use std::cmp::Ordering::*;
+                    match i.cmp(&item.position) {
+                        Less => to_name(&production.right[i]),
+                        Equal => ".",
+                        Greater => to_name(&production.right[i - 1])
                     }
-                }
-            }
-            new_add = temp;
-        }
-        added.into_iter().collect()
-    }
-}
-struct DisplayGrammar {
-    terminals: Vec<&'static str>,
-    non_terminals: Vec<&'static str>,
-    grammar: Grammar,
-}
-impl DisplayGrammar {
-    fn to_name(&self, symbol: &Symbol) -> &'static str {
-        match symbol {
-            NonTerminal(s) => self.non_terminals[*s],
-            Terminal(s) => self.terminals[*s],
-        }
-    }
-}
-impl Display for DisplayGrammar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        for terminal in &self.terminals {
-            write!(f, "{} ", terminal);
-        }
-        writeln!(f);
-        for production in &self.grammar.productions {
-            write!(f, "{} -> ", self.non_terminals[production.left],)?;
-            for right in &production.right {
-                write!(f, "{} ", self.to_name(right))?;
-            }
-            writeln!(f);
-        }
-        writeln!(f, "LR(0):");
-        for i in 0..self.grammar.g.len() {
-            let items = &self.grammar.g[i];
-            writeln!(f, "I{}", i);
-            for item in self.grammar.closure(items.clone()) {
-                let production = &self.grammar.productions[item.production_index];
+                }));
                 if items.iter().any(|x| x == &item) {
-                    write!(f, "{} -> ", self.non_terminals[production.left]);
+                    debug!("{} -> {}", non_terminals[production.left], right);
                 } else {
-                    write!(f, "* {} -> ", self.non_terminals[production.left]);
+                    debug!("* {} -> {}", non_terminals[production.left], right);
                 }
-                for j in 0..production.right.len() + 1 {
-                    if j == item.position {
-                        write!(f, ". ");
-                    }
-                    if j < production.right.len() {
-                        write!(f, "{} ", self.to_name(&production.right[j]));
-                    }
-                }
-                writeln!(f);
             }
-            for symbol in &self.grammar.goto_symbol[i] {
-                write!(f, "{} => ", self.to_name(symbol));
-                writeln!(
-                    f,
-                    "I{}",
-                    self.grammar.goto.get(&(i, symbol.clone())).unwrap()
+            for symbol in &goto_symbol[i] {
+                debug!(
+                    "{} => I{}",
+                    to_name(symbol),
+                    goto.get(&(i, symbol.clone())).unwrap()
                 );
             }
-            write!(f, "generated ");
-            for terminal in &self.grammar.lalr_generated_terminal[i] {
-                write!(f, "{} ", self.terminals[*terminal]);
-            }
-            writeln!(f);
-            write!(f, "propagated ");
-            for state in &self.grammar.lalr_propagated_path[i] {
-                write!(f, "I{} ", state);
-            }
-            writeln!(f);
+            debug!(
+                "generated {}",
+                str_join(
+                    lalr_generated_terminal[i]
+                        .iter()
+                        .map(|terminal| terminals[*terminal])
+                )
+            );
+            debug!(
+                "propagated {}",
+                str_join(
+                    lalr_propagated_path[i]
+                        .iter()
+                        .map(|state| format!("I{}", state))
+                )
+            );
         }
-        for i in 0..self.grammar.first.len() {
-            write!(f, "first({}) = ", self.non_terminals[i]);
-            for first in &self.grammar.first[i] {
-                write!(f, "{} ", self.terminals[*first]);
-            }
-            writeln!(f);
+        for i in 0..first.len() {
+            debug!(
+                "first({}) = {}",
+                non_terminals[i],
+                str_join(first[i].iter().map(|first| terminals[*first]))
+            );
         }
-        Ok(())
+        Self {}
     }
 }
 #[derive(Debug)]
@@ -352,11 +309,10 @@ macro_rules! parser {
                 };
             }
             lazy_static! {
-                static ref GRAMMAR: DisplayGrammar = {
-                    DisplayGrammar {
-                        terminals: vec![$(stringify!($terminals)),+],
-                        non_terminals: vec!["S'", $(stringify!($left)),+],
-                        grammar: Grammar::new(
+                static ref GRAMMAR: Grammar = {
+                    Grammar::new(
+                            &[$(stringify!($terminals)),+],
+                            &["S'", $(stringify!($left)),+],
                             vec![
                                     (
                                         0,
@@ -371,10 +327,8 @@ macro_rules! parser {
                                     )
                                 ),+
                             ],
-                            TERMINAL_MAP.len(),
                             NON_TERMINAL_MAP.len() + 1
                         )
-                    }
                 };
             }
             fn name_to_symbol(s: &str) -> Option<Symbol> {
@@ -387,16 +341,28 @@ macro_rules! parser {
                     None
                 }
             }
+            fn grammar() -> &'static Grammar {
+                &GRAMMAR
+            }
             impl $parser_name {
                 pub fn new() -> Self {
+                    println!("{:?}", grammar());
                     Self {}
-                }
-                pub fn grammar(&self) -> &DisplayGrammar {
-                    &GRAMMAR
                 }
             }
         }
     };
+}
+fn str_join<I: Iterator<Item = S>, S: ToString>(mut iter: I) -> String {
+    let mut r = String::new();
+    if let Some(i) = iter.next() {
+        r.push_str(&i.to_string());
+    }
+    for i in iter {
+        r.push(' ');
+        r.push_str(&i.to_string());
+    }
+    r
 }
 #[test]
 fn test_parser() {
@@ -419,6 +385,6 @@ fn test_parser() {
     //    Function -> id, left_bracket, ParamList, right_bracket;
     //    ParamList -> number, comma, ParamList | number
     //);
+    let _ = pretty_env_logger::init();
     let parser = LuaParser::new();
-    println!("{}", parser.grammar());
 }

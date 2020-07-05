@@ -2,14 +2,14 @@
 extern crate nom;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
 mod builtin_functions;
 pub use builtin_functions::*;
 mod vm;
 pub use vm::*;
 mod parser;
 pub use parser::*;
-mod lexer;
-pub use lexer::*;
 
 fn main() {
     let mut vm = VM::new();
