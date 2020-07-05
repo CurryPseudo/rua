@@ -13,11 +13,24 @@ use Symbol::*;
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 enum TerminalSymbol {
     Normal(usize),
-    End
+    End,
 }
 use TerminalSymbol::*;
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+enum Action {
+    MoveIn(usize),
+    Reduce(usize, usize),
+    Finish,
+    Error
+}
+use Action::*;
+
 #[derive(Debug)]
-struct Grammar {}
+struct Grammar {
+    action: Vec<Vec<Action>>,
+    goto: Vec<Vec<Option<usize>>>
+}
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 struct Item {
@@ -44,7 +57,6 @@ impl Grammar {
         terminals: &[&'static str],
         non_terminals: &[&'static str],
         split_productions: Vec<(usize, Vec<Vec<Symbol>>)>,
-        non_terminal_count: usize,
     ) -> Self {
         let mut productions = Vec::new();
         let mut non_terminal_to_production = Vec::new();
@@ -82,24 +94,18 @@ impl Grammar {
             );
         }
         let closure = |items: Vec<Item>| -> Vec<Item> {
-            let mut added = items.clone().into_iter().collect::<HashSet<_>>();
-            let mut new_add = items;
-            while !new_add.is_empty() {
-                let mut temp = Vec::new();
-                for x in new_add {
-                    if let Some(NonTerminal(y)) = get_symbol(&x) {
-                        for z in &non_terminal_to_production[*y] {
-                            let item = Item::new(*z, 0);
-                            if !added.contains(&item) {
-                                temp.push(item);
-                                added.insert(item);
-                            }
-                        }
+            let mut results = Vec::new();
+            dfs(items, |item| {
+                results.push(item);
+                let mut nexts = Vec::new();
+                if let Some(NonTerminal(y)) = get_symbol(&item) {
+                    for z in &non_terminal_to_production[*y] {
+                        nexts.push(Item::new(*z, 0));
                     }
                 }
-                new_add = temp;
-            }
-            added.into_iter().collect()
+                nexts
+            });
+            results
         };
         let mut goto = HashMap::new();
         {
@@ -107,63 +113,60 @@ impl Grammar {
             g_map.insert(begin_production_closure.clone(), 0);
             g.push(begin_production_closure.clone());
             goto_symbol.push(Vec::new());
-            let mut new_adds = vec![(0, begin_production_closure)];
-            while !new_adds.is_empty() {
-                let mut temp = Vec::new();
-                for (index, new_add) in new_adds {
-                    let c = closure(new_add);
-                    let mut current_goto = HashMap::new();
-                    for i in c {
-                        if let Some(symbol) = get_symbol(&i) {
-                            let v = current_goto.entry(symbol).or_insert_with(Vec::new);
-                            v.push(i.acc());
-                        }
-                    }
-                    for (symbol, mut i) in current_goto {
-                        i.sort();
-                        let to = if let Some(to) = g_map.get(&i) {
-                            *to
-                        } else {
-                            let to = g.len();
-                            temp.push((to, i.clone()));
-                            g_map.insert(i.clone(), to);
-                            g.push(i);
-                            goto_symbol.push(Vec::new());
-                            to
-                        };
-                        goto.insert((index, symbol), to);
-                        goto_symbol[index].push(symbol);
+            dfs(vec![(0, begin_production_closure)], |(index, items)| {
+                let closure = closure(items);
+                let mut current_goto = HashMap::new();
+                for i in closure {
+                    if let Some(symbol) = get_symbol(&i) {
+                        let v = current_goto.entry(symbol).or_insert_with(Vec::new);
+                        v.push(i.acc());
                     }
                 }
-                new_adds = temp;
-            }
+                let mut result = Vec::new();
+                for (symbol, mut i) in current_goto {
+                    i.sort();
+                    let to = if let Some(to) = g_map.get(&i) {
+                        *to
+                    } else {
+                        let to = g.len();
+                        result.push((to, i.clone()));
+                        g_map.insert(i.clone(), to);
+                        g.push(i);
+                        goto_symbol.push(Vec::new());
+                        to
+                    };
+                    goto.insert((index, *symbol), to);
+                    goto_symbol[index].push(*symbol);
+                }
+                result
+            });
         }
-        let mut first = vec![HashSet::new(); non_terminal_count];
+        let mut first = vec![HashSet::new(); non_terminals.len()];
         {
-            let mut first_propagate_map = vec![HashSet::new(); non_terminal_count];
+            let mut first_propagate_map = vec![HashSet::new(); non_terminals.len()];
             for production in &productions {
                 if let Some(NonTerminal(s)) = production.right.first() {
                     first_propagate_map[*s].insert(production.left);
                 }
             }
-            let mut new_added = Vec::new();
-            for production in &productions {
-                if let Some(Terminal(s)) = production.right.first() {
-                    new_added.push((production.left, *s));
-                    first[production.left].insert(*s);
-                }
-            }
-            while !new_added.is_empty() {
-                let mut temp = Vec::new();
-                for (non_terminal, first_terminal) in new_added {
-                    for to in &first_propagate_map[non_terminal] {
-                        if first[*to].insert(first_terminal) {
-                            temp.push((*to, first_terminal));
+            dfs(
+                {
+                    let mut begins = Vec::new();
+                    for production in &productions {
+                        if let Some(Terminal(s)) = production.right.first() {
+                            begins.push((production.left, *s));
                         }
                     }
-                }
-                new_added = temp;
-            }
+                    begins
+                },
+                |(non_terminal, first_terminal)| {
+                    first[non_terminal].insert(first_terminal);
+                    first_propagate_map[non_terminal]
+                        .iter()
+                        .map(|to| (*to, first_terminal))
+                        .collect()
+                },
+            );
         }
         let mut lalr_generated_terminal = vec![HashSet::new(); g.len()];
         let mut lalr_propagated_path = vec![HashSet::new(); g.len()];
@@ -171,80 +174,64 @@ impl Grammar {
             let mut item_to_state = HashMap::new();
             for (i, g) in g.iter().enumerate() {
                 for item in closure(g.clone()) {
-                    item_to_state
-                        .entry(item)
-                        .or_insert_with(Vec::new)
-                        .push(i);
+                    item_to_state.entry(item).or_insert_with(Vec::new).push(i);
                 }
             }
             for i in 0..g.len() {
-                let mut added = HashSet::new();
-                for item in &g[i] {
-                    added.insert((None, *item));
-                    let mut new_added = vec![(None, *item)];
-                    while !new_added.is_empty() {
-                        let mut temp = HashSet::new();
-                        for (option_terminals, item) in new_added {
-                            if let Some(symbol) = get_symbol(&item) {
-                                let state = goto[&(i, symbol)];
-                                if let Some(terminal) = option_terminals {
-                                    lalr_generated_terminal[state].insert(terminal);
-                                } else {
-                                    lalr_propagated_path[i].insert(state);
-                                }
+                dfs(
+                    g[i].iter().map(|item| (None, *item)).collect(),
+                    |(option_terminals, item)| {
+                        if let Some(symbol) = get_symbol(&item) {
+                            let state = goto[&(i, *symbol)];
+                            if let Some(terminal) = option_terminals {
+                                lalr_generated_terminal[state].insert(terminal);
+                            } else {
+                                lalr_propagated_path[i].insert(state);
                             }
-                            if let Some(NonTerminal(non_terminal)) = get_symbol(&item) {
-                                let look_forward_symbols =
-                                    if let Some(symbol) = get_symbol(&item.clone().acc()) {
-                                        match symbol {
-                                            NonTerminal(s) => {
-                                                first[*s].iter().map(|s| Some(*s)).collect()
-                                            }
-                                            Terminal(s) => vec![Some(*s)],
-                                        }
-                                    } else {
-                                        vec![option_terminals]
-                                    };
-                                for look_forward_symbol in &look_forward_symbols {
-                                    for production in &non_terminal_to_production[*non_terminal] {
-                                        let to_add =
-                                            (*look_forward_symbol, Item::new(*production, 0));
-                                        if added.insert(to_add) {
-                                            temp.insert(to_add);
-                                        }
-                                    }
+                        }
+                        let mut next = Vec::new();
+                        if let Some(NonTerminal(non_terminal)) = get_symbol(&item) {
+                            let look_forward_symbols = if let Some(symbol) =
+                                get_symbol(&item.clone().acc())
+                            {
+                                match symbol {
+                                    NonTerminal(s) => first[*s].iter().map(|s| Some(*s)).collect(),
+                                    Terminal(s) => vec![Some(*s)],
+                                }
+                            } else {
+                                vec![option_terminals]
+                            };
+                            for look_forward_symbol in &look_forward_symbols {
+                                for production in &non_terminal_to_production[*non_terminal] {
+                                    next.push((*look_forward_symbol, Item::new(*production, 0)));
                                 }
                             }
                         }
-                        new_added = temp.into_iter().collect();
-                    }
-                }
+                        next
+                    },
+                );
             }
         }
-        let mut look_forward_terminal = vec![Vec::new(); g.len()];
-        {
-            let mut added = HashSet::new();
-            let mut to_added = Vec::new();
-            for (i, generateds) in lalr_generated_terminal.iter().enumerate() {
-                for generated in generateds {
-                    let t = (i, Normal(*generated));
-                    added.insert(t);
-                    to_added.push(t)
-                }
-            }
-            added.insert((0, End));
-            to_added.push((0, End));
-            while let Some((i, terminal)) = to_added.pop() {
-                look_forward_terminal[i].push(terminal);
-                for propagated in &lalr_propagated_path[i] {
-                    let t = (*propagated, terminal);
-                    if added.insert(t) {
-                        to_added.push(t);
+        let mut look_forward_terminal = vec![HashSet::new(); g.len()];
+        dfs(
+            {
+                let mut begin = Vec::new();
+                for (i, generateds) in lalr_generated_terminal.iter().enumerate() {
+                    for generated in generateds {
+                        begin.push((i, Normal(*generated)));
                     }
                 }
-            }
-        }
-
+                begin.push((0, End));
+                begin
+            },
+            |(i, terminal)| {
+                look_forward_terminal[i].insert(terminal);
+                lalr_propagated_path[i]
+                    .iter()
+                    .map(|propagated| (*propagated, terminal))
+                    .collect()
+            },
+        );
         debug!("LR(0):");
         for i in 0..g.len() {
             let items = &g[i];
@@ -267,14 +254,17 @@ impl Grammar {
             for item in items {
                 debug!("{}", print_production(item));
             }
-            for item in closure(items.clone()).iter().filter(|item| !items.iter().any(|x| &x == item)) {
+            for item in closure(items.clone())
+                .iter()
+                .filter(|item| !items.iter().any(|x| &x == item))
+            {
                 debug!("* {}", print_production(item));
             }
             for symbol in &goto_symbol[i] {
                 debug!(
                     "{} => I{}",
                     to_name(symbol),
-                    goto.get(&(i, symbol.clone())).unwrap()
+                    goto.get(&(i, *symbol)).unwrap()
                 );
             }
             debug!(
@@ -295,16 +285,12 @@ impl Grammar {
             );
             debug!(
                 "final {}",
-                str_join(
-                    look_forward_terminal[i]
-                        .iter()
-                        .map(|terminal| {
-                            match terminal {
-                                End => "$",
-                                Normal(t) => terminals[*t]
-                            }
-                        })
-                )
+                str_join(look_forward_terminal[i].iter().map(|terminal| {
+                    match terminal {
+                        End => "$",
+                        Normal(t) => terminals[*t],
+                    }
+                }))
             );
         }
         for i in 0..first.len() {
@@ -314,8 +300,53 @@ impl Grammar {
                 str_join(first[i].iter().map(|first| terminals[*first]))
             );
         }
-        
-        Self {}
+        let mut action_table = vec![vec![Error; terminals.len() + 1]; g.len()];
+        let mut goto_table = vec![vec![None; non_terminals.len()]; g.len()];
+        for i in 0..g.len() {
+            for j in 0..terminals.len() {
+                let mut has_goto = false;
+                if let Some(k) = goto.get(&(i, Terminal(j))) {
+                    has_goto = true;
+                    action_table[i][j] = MoveIn(*k);
+                }
+                if look_forward_terminal[i].contains(&Normal(j)) {
+                    let mut reduce = None;
+                    for item in &g[i] {
+                        let production = &productions[item.production_index];
+                        if production.right.len() == item.position {
+                            if reduce.is_none() {
+                                reduce = Some(Reduce(production.left, production.right.len()));
+                            }
+                            else {
+                                panic!("Reduce/reduce conflict");
+                            }
+                        }
+                    }
+                    if let Some(reduce) = reduce {
+                        if has_goto {
+                            panic!("Move-in/reduce conflict");
+                        }
+                        action_table[i][j] = reduce;
+                    }
+                }
+            }
+            for item in &g[i] {
+                let production = &productions[item.production_index];
+                if production.left == 0 && item.position == 1 {
+                    action_table[i][terminals.len()] = Finish;
+                    break;
+                }
+            }
+            for j in 0..non_terminals.len() {
+                if let Some(k) = goto.get(&(i, NonTerminal(j))) {
+                    goto_table[i][j] = Some(*k);
+                }
+            }
+       }
+        Self {
+            action: action_table,
+            goto: goto_table
+        }
     }
 }
 #[derive(Debug)]
@@ -371,8 +402,7 @@ macro_rules! parser {
                                         ),+]),+]
                                     )
                                 ),+
-                            ],
-                            NON_TERMINAL_MAP.len() + 1
+                            ]
                         )
                 };
             }
@@ -391,7 +421,7 @@ macro_rules! parser {
             }
             impl $parser_name {
                 pub fn new() -> Self {
-                    println!("{:?}", grammar());
+                    println!("{:#?}", grammar());
                     Self {}
                 }
             }
@@ -408,6 +438,21 @@ fn str_join<I: Iterator<Item = S>, S: ToString>(mut iter: I) -> String {
         r.push_str(&i.to_string());
     }
     r
+}
+fn dfs<T: Hash + PartialEq + Eq + Clone, N: FnMut(T) -> Vec<T>>(begins: Vec<T>, mut n: N) {
+    let mut added = HashSet::new();
+    let mut to_addeds = begins;
+    for to_added in &to_addeds {
+        added.insert(to_added.clone());
+    }
+    while let Some(x) = to_addeds.pop() {
+        let nexts = n(x);
+        for next in nexts {
+            if added.insert(next.clone()) {
+                to_addeds.push(next);
+            }
+        }
+    }
 }
 #[test]
 fn test_parser() {
