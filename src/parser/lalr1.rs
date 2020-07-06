@@ -4,6 +4,11 @@ use std::hash::Hash;
 pub trait ToTerminalName {
     fn to_terminal_name(&self) -> &'static str;
 }
+impl ToTerminalName for &'static str {
+    fn to_terminal_name(&self) -> &'static str {
+        *self
+    }
+}
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 enum Symbol {
     NonTerminal(usize),
@@ -22,14 +27,75 @@ enum Action {
     MoveIn(usize),
     Reduce(usize, usize),
     Finish,
-    Error
+    Error,
 }
 use Action::*;
 
 #[derive(Debug)]
-struct Grammar {
+pub struct Grammar {
+    terminal_map: HashMap<&'static str, usize>,
+    non_terminal_map: HashMap<&'static str, usize>,
     action: Vec<Vec<Action>>,
-    goto: Vec<Vec<Option<usize>>>
+    goto: Vec<Vec<Option<usize>>>,
+    debug_info: GrammarDebugInfo,
+}
+
+#[derive(Debug)]
+struct GrammarDebugInfo {
+    terminals: Vec<&'static str>,
+    non_terminals: Vec<&'static str>,
+    productions: Vec<Production>,
+    g: Vec<Vec<Item>>,
+}
+
+impl GrammarDebugInfo {
+    fn print_item(&self, item: &Item) -> String {
+        let production = &self.productions[item.production_index];
+        format!(
+            "{} -> {}",
+            self.non_terminals[production.left],
+            str_join(
+                (0..production.right.len() + 1).map(|i| {
+                    use std::cmp::Ordering::*;
+                    match i.cmp(&item.position) {
+                        Less => self.to_name(&production.right[i]),
+                        Equal => ".",
+                        Greater => self.to_name(&production.right[i - 1]),
+                    }
+                }),
+                " "
+            )
+        )
+    }
+    fn print_production(&self, production_index: usize) -> String {
+        let production = &self.productions[production_index];
+        format!(
+            "{} -> {}",
+            self.non_terminals[production.left],
+            str_join(
+                production.right.iter().map(|right| self.to_name(right)),
+                " "
+            )
+        )
+    }
+    fn print_state_items(&self, state: usize) -> Vec<String> {
+        self.g[state]
+            .iter()
+            .map(|item| self.print_item(item))
+            .collect()
+    }
+    fn to_name(&self, symbol: &Symbol) -> &'static str {
+        match symbol {
+            NonTerminal(s) => &self.non_terminals[*s],
+            Terminal(s) => {
+                if *s < self.terminals.len() {
+                    &self.terminals[*s]
+                } else {
+                    "$"
+                }
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -54,8 +120,10 @@ impl Item {
 
 impl Grammar {
     fn new(
-        terminals: &[&'static str],
-        non_terminals: &[&'static str],
+        terminal_map: HashMap<&'static str, usize>,
+        terminals: Vec<&'static str>,
+        non_terminal_map: HashMap<&'static str, usize>,
+        non_terminals: Vec<&'static str>,
         split_productions: Vec<(usize, Vec<Vec<Symbol>>)>,
     ) -> Self {
         let mut productions = Vec::new();
@@ -79,20 +147,6 @@ impl Grammar {
                 None
             }
         };
-        let to_name = |symbol: &Symbol| -> &'static str {
-            match symbol {
-                NonTerminal(s) => non_terminals[*s],
-                Terminal(s) => terminals[*s],
-            }
-        };
-        debug!("{}", str_join(terminals.iter().copied()));
-        for production in &productions {
-            debug!(
-                "{} -> {}",
-                non_terminals[production.left],
-                str_join(production.right.iter().map(|right| to_name(right)))
-            );
-        }
         let closure = |items: Vec<Item>| -> Vec<Item> {
             let mut results = Vec::new();
             dfs(items, |item| {
@@ -232,92 +286,30 @@ impl Grammar {
                     .collect()
             },
         );
-        debug!("LR(0):");
-        for i in 0..g.len() {
-            let items = &g[i];
-            debug!("I{}", i);
-            let print_production = |item: &Item| {
-                let production = &productions[item.production_index];
-                format!(
-                    "{} -> {}",
-                    non_terminals[production.left],
-                    str_join((0..production.right.len() + 1).map(|i| {
-                        use std::cmp::Ordering::*;
-                        match i.cmp(&item.position) {
-                            Less => to_name(&production.right[i]),
-                            Equal => ".",
-                            Greater => to_name(&production.right[i - 1]),
-                        }
-                    }))
-                )
-            };
-            for item in items {
-                debug!("{}", print_production(item));
-            }
-            for item in closure(items.clone())
-                .iter()
-                .filter(|item| !items.iter().any(|x| &x == item))
-            {
-                debug!("* {}", print_production(item));
-            }
-            for symbol in &goto_symbol[i] {
-                debug!(
-                    "{} => I{}",
-                    to_name(symbol),
-                    goto.get(&(i, *symbol)).unwrap()
-                );
-            }
-            debug!(
-                "generated {}",
-                str_join(
-                    lalr_generated_terminal[i]
-                        .iter()
-                        .map(|terminal| terminals[*terminal])
-                )
-            );
-            debug!(
-                "propagated {}",
-                str_join(
-                    lalr_propagated_path[i]
-                        .iter()
-                        .map(|state| format!("I{}", state))
-                )
-            );
-            debug!(
-                "final {}",
-                str_join(look_forward_terminal[i].iter().map(|terminal| {
-                    match terminal {
-                        End => "$",
-                        Normal(t) => terminals[*t],
-                    }
-                }))
-            );
-        }
-        for i in 0..first.len() {
-            debug!(
-                "first({}) = {}",
-                non_terminals[i],
-                str_join(first[i].iter().map(|first| terminals[*first]))
-            );
-        }
         let mut action_table = vec![vec![Error; terminals.len() + 1]; g.len()];
         let mut goto_table = vec![vec![None; non_terminals.len()]; g.len()];
         for i in 0..g.len() {
-            for j in 0..terminals.len() {
+            for j in 0..terminals.len() + 1 {
                 let mut has_goto = false;
-                if let Some(k) = goto.get(&(i, Terminal(j))) {
-                    has_goto = true;
-                    action_table[i][j] = MoveIn(*k);
+                if j != terminals.len() {
+                    if let Some(k) = goto.get(&(i, Terminal(j))) {
+                        has_goto = true;
+                        action_table[i][j] = MoveIn(*k);
+                    }
                 }
-                if look_forward_terminal[i].contains(&Normal(j)) {
+                let terminal = if j == terminals.len() { End } else { Normal(j) };
+                if look_forward_terminal[i].contains(&terminal) {
                     let mut reduce = None;
                     for item in &g[i] {
                         let production = &productions[item.production_index];
                         if production.right.len() == item.position {
                             if reduce.is_none() {
-                                reduce = Some(Reduce(production.left, production.right.len()));
-                            }
-                            else {
+                                if production.left == 0 {
+                                    reduce = Some(Finish);
+                                } else {
+                                    reduce = Some(Reduce(production.left, production.right.len()));
+                                }
+                            } else {
                                 panic!("Reduce/reduce conflict");
                             }
                         }
@@ -330,26 +322,154 @@ impl Grammar {
                     }
                 }
             }
-            for item in &g[i] {
-                let production = &productions[item.production_index];
-                if production.left == 0 && item.position == 1 {
-                    action_table[i][terminals.len()] = Finish;
-                    break;
-                }
-            }
             for j in 0..non_terminals.len() {
                 if let Some(k) = goto.get(&(i, NonTerminal(j))) {
                     goto_table[i][j] = Some(*k);
                 }
             }
-       }
+        }
+        let debug_info = GrammarDebugInfo {
+            terminals,
+            non_terminals,
+            g,
+            productions: productions.clone(),
+        };
+        debug!("{}", str_join(debug_info.terminals.iter().copied(), " "));
+        for production in 0..productions.len() {
+            debug!("{}", debug_info.print_production(production));
+        }
+        debug!("LR(0):");
+        for i in 0..debug_info.g.len() {
+            let items = &debug_info.g[i];
+            debug!("I{}", i);
+            for item in items {
+                debug!("{}", debug_info.print_item(item));
+            }
+            for item in closure(items.clone())
+                .iter()
+                .filter(|item| !items.iter().any(|x| &x == item))
+            {
+                debug!("* {}", debug_info.print_item(item));
+            }
+            for symbol in &goto_symbol[i] {
+                debug!(
+                    "{} => I{}",
+                    debug_info.to_name(symbol),
+                    goto.get(&(i, *symbol)).unwrap()
+                );
+            }
+            debug!(
+                "generated [{}]",
+                str_join(
+                    lalr_generated_terminal[i]
+                        .iter()
+                        .map(|terminal| debug_info.terminals[*terminal]),
+                    ","
+                )
+            );
+            debug!(
+                "propagated [{}]",
+                str_join(
+                    lalr_propagated_path[i]
+                        .iter()
+                        .map(|state| format!("I{}", state)),
+                    ","
+                )
+            );
+            debug!(
+                "final [{}]",
+                str_join(
+                    look_forward_terminal[i].iter().map(|terminal| {
+                        match terminal {
+                            End => "$",
+                            Normal(t) => debug_info.terminals[*t],
+                        }
+                    }),
+                    ","
+                )
+            );
+        }
+        for i in 0..first.len() {
+            debug!(
+                "first({}) = [{}]",
+                debug_info.non_terminals[i],
+                str_join(
+                    first[i].iter().map(|first| debug_info.terminals[*first]),
+                    ","
+                )
+            );
+        }
         Self {
+            terminal_map,
+            non_terminal_map,
             action: action_table,
-            goto: goto_table
+            goto: goto_table,
+            debug_info,
+        }
+    }
+    pub fn parse<T: ToTerminalName>(&self, tokens: Vec<T>) {
+        let mut stack = vec![0];
+        let mut index = 0;
+        let to_terminal = |token: &T| *self.terminal_map.get(token.to_terminal_name()).unwrap();
+        while !stack.is_empty() {
+            let terminal = if index >= tokens.len() {
+                self.action[0].len() - 1
+            } else {
+                to_terminal(&tokens[index])
+            };
+            let state = *stack.last().unwrap();
+            match self.action[state][terminal] {
+                MoveIn(next) => {
+                    stack.push(next);
+                    debug!("push {}", next);
+                    if index < tokens.len() {
+                        index += 1;
+                    }
+                }
+                Reduce(left, right_count) => {
+                    for _ in 0..right_count {
+                        debug!("pop {}", stack.last().unwrap());
+                        stack.pop();
+                    }
+                    let next = self.goto[*stack.last().unwrap()][left].unwrap();
+                    stack.push(next);
+                    debug!("push {}", next);
+                }
+                Finish => {
+                    return;
+                }
+                Error => {
+                    let state = *stack.last().unwrap();
+                    error!("current state:");
+                    for production in self.debug_info.print_state_items(state) {
+                        error!("{}", production);
+                    }
+                    let mut expect = Vec::new();
+                    for (i, action) in self.action[state].iter().enumerate() {
+                        if match action {
+                            Error => false,
+                            _ => true,
+                        } {
+                            expect.push(i);
+                        }
+                    }
+                    error!(
+                        "expect token [{}], get [{}]",
+                        str_join(
+                            expect
+                                .iter()
+                                .map(|terminal| self.debug_info.to_name(&Terminal(*terminal))),
+                            ","
+                        ),
+                        self.debug_info.to_name(&Terminal(terminal))
+                    );
+                    panic!();
+                }
+            }
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Production {
     left: usize,
     right: Vec<Symbol>,
@@ -363,78 +483,70 @@ macro_rules! parser {
         pub struct $parser_name {}
         {
             lazy_static! {
-                static ref TERMINAL_MAP: HashMap<&'static str, usize> = {
-                    let mut r = HashMap::new();
-                    $({
-                        let len = r.len() as usize;
-                        r.insert(stringify!($terminals), len);
-                      }
-                    )+
-                    r
-                };
-            }
-            lazy_static! {
-                static ref NON_TERMINAL_MAP: HashMap<&'static str, usize> = {
-                    let mut r = HashMap::new();
-                    $({
-                        let len = r.len() as usize;
-                        r.insert(stringify!($left), len + 1);
-                      }
-                    )+
-                    r
-                };
-            }
-            lazy_static! {
                 static ref GRAMMAR: Grammar = {
+                    let mut terminal_map = HashMap::new();
+                    $({
+                        let len = terminal_map.len() as usize;
+                        terminal_map.insert(stringify!($terminals), len);
+                      }
+                    )+
+                    let mut non_terminal_map = HashMap::new();
+                    $({
+                        let len = non_terminal_map.len() as usize;
+                        non_terminal_map.insert(stringify!($left), len + 1);
+                      }
+                    )+
+                    let name_to_symbol = |s| {
+                        if let Some(non_terminal) = non_terminal_map.get(s) {
+                            Some(NonTerminal(*non_terminal))
+                        } else if let Some(terminal) = terminal_map.get(s) {
+                            Some(Terminal(*terminal))
+                        }
+                        else {
+                            None
+                        }
+                    };
+                    let productions = vec![
+                        (
+                            0,
+                            vec![vec![NonTerminal(1)]]
+                        ),
+                        $(
+                            (
+                                *non_terminal_map.get(stringify!($left)).unwrap(),
+                                vec![$(vec![$(
+                                    name_to_symbol(stringify!($right)).unwrap()
+                                ),+]),+]
+                            )
+                        ),+
+                    ];
                     Grammar::new(
-                            &[$(stringify!($terminals)),+],
-                            &["S'", $(stringify!($left)),+],
-                            vec![
-                                    (
-                                        0,
-                                        vec![vec![NonTerminal(1)]]
-                                    ),
-                                $(
-                                    (
-                                        *NON_TERMINAL_MAP.get(stringify!($left)).unwrap(),
-                                        vec![$(vec![$(
-                                            name_to_symbol(stringify!($right)).unwrap()
-                                        ),+]),+]
-                                    )
-                                ),+
-                            ]
+                            terminal_map,
+                            vec![$(stringify!($terminals)),+],
+                            non_terminal_map,
+                            vec!["S'", $(stringify!($left)),+],
+                            productions
                         )
                 };
             }
-            fn name_to_symbol(s: &str) -> Option<Symbol> {
-                if let Some(non_terminal) = NON_TERMINAL_MAP.get(s) {
-                    Some(NonTerminal(*non_terminal))
-                } else if let Some(terminal) = TERMINAL_MAP.get(s) {
-                    Some(Terminal(*terminal))
-                }
-                else {
-                    None
-                }
-            }
-            fn grammar() -> &'static Grammar {
-                &GRAMMAR
-            }
             impl $parser_name {
                 pub fn new() -> Self {
-                    println!("{:#?}", grammar());
                     Self {}
+                }
+                pub fn grammar(&self) -> &'static Grammar {
+                    &GRAMMAR
                 }
             }
         }
     };
 }
-fn str_join<I: Iterator<Item = S>, S: ToString>(mut iter: I) -> String {
+fn str_join<I: Iterator<Item = S>, S: ToString>(mut iter: I, join_with: &str) -> String {
     let mut r = String::new();
     if let Some(i) = iter.next() {
         r.push_str(&i.to_string());
     }
     for i in iter {
-        r.push(' ');
+        r.push_str(join_with);
         r.push_str(&i.to_string());
     }
     r
@@ -456,25 +568,36 @@ fn dfs<T: Hash + PartialEq + Eq + Clone, N: FnMut(T) -> Vec<T>>(begins: Vec<T>, 
 }
 #[test]
 fn test_parser() {
-    parser!(
-        ParserName: LuaParser;
-        Terminals: *, id, =;
-        S -> L, =, R | R;
-        L -> *, R | id;
-        R -> L
-    );
+    //parser!(
+    //    ParserName: LuaParser;
+    //    Terminals: *, id, =;
+    //    S -> L, =, R | R;
+    //    L -> *, R | id;
+    //    R -> L
+    //);
     //parser!(
     //    ParserName: LuaParser;
     //    Terminals: c, d;
     //    S -> C, C;
     //    C -> c, C | d
     //);
-    //parser!(
-    //    ParserName: LuaParser;
-    //    Terminals: id, comma, left_bracket, right_bracket, number;
-    //    Function -> id, left_bracket, ParamList, right_bracket;
-    //    ParamList -> number, comma, ParamList | number
-    //);
+    parser!(
+        ParserName: LuaParser;
+        Terminals: id, comma, left_bracket, right_bracket, number;
+        Function -> id, left_bracket, ParamList, right_bracket;
+        ParamList -> number, comma, ParamList 
+            | number, comma 
+            | number
+    );
     let _ = pretty_env_logger::init();
     let parser = LuaParser::new();
+    parser.grammar().parse(vec![
+        "id",
+        "left_bracket",
+        "number",
+        "comma",
+        "number",
+        "comma",
+        "right_bracket",
+    ]);
 }
