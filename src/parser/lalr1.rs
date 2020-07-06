@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::hash::Hash;
 pub trait ToTerminalName {
     fn to_terminal_name(&self) -> &'static str;
@@ -25,19 +26,20 @@ use TerminalSymbol::*;
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 enum Action {
     MoveIn(usize),
-    Reduce(usize, usize),
+    Reduce(usize, usize, usize, usize),
     Finish,
     Error,
 }
 use Action::*;
 
-#[derive(Debug)]
-pub struct Grammar {
+type ASTBuilder<T, A> = Box<dyn Sync + Fn(VecDeque<T>, VecDeque<A>) -> A>;
+pub struct Grammar<T, A> {
     terminal_map: HashMap<&'static str, usize>,
     non_terminal_map: HashMap<&'static str, usize>,
     action: Vec<Vec<Action>>,
     goto: Vec<Vec<Option<usize>>>,
     debug_info: GrammarDebugInfo,
+    ast_builders: Vec<ASTBuilder<T, A>>,
 }
 
 #[derive(Debug)]
@@ -118,13 +120,14 @@ impl Item {
     }
 }
 
-impl Grammar {
+impl<T: ToTerminalName, A> Grammar<T, A> {
     fn new(
         terminal_map: HashMap<&'static str, usize>,
         terminals: Vec<&'static str>,
         non_terminal_map: HashMap<&'static str, usize>,
         non_terminals: Vec<&'static str>,
         split_productions: Vec<(usize, Vec<Vec<Symbol>>)>,
+        ast_builders: Vec<ASTBuilder<T, A>>,
     ) -> Self {
         let mut productions = Vec::new();
         let mut non_terminal_to_production = Vec::new();
@@ -307,7 +310,21 @@ impl Grammar {
                                 if production.left == 0 {
                                     reduce = Some(Finish);
                                 } else {
-                                    reduce = Some(Reduce(production.left, production.right.len()));
+                                    let mut terminal_count = 0;
+                                    let mut non_terminal_count = 0;
+                                    for symbol in &production.right {
+                                        if let Terminal(_) = symbol {
+                                            terminal_count += 1;
+                                        } else {
+                                            non_terminal_count += 1;
+                                        }
+                                    }
+                                    reduce = Some(Reduce(
+                                        item.production_index,
+                                        production.left,
+                                        terminal_count,
+                                        non_terminal_count,
+                                    ));
                                 }
                             } else {
                                 panic!("Reduce/reduce conflict");
@@ -405,38 +422,47 @@ impl Grammar {
             action: action_table,
             goto: goto_table,
             debug_info,
+            ast_builders,
         }
     }
-    pub fn parse<T: ToTerminalName>(&self, tokens: Vec<T>) {
+    pub fn parse(&self, mut tokens: VecDeque<T>) -> A {
         let mut stack = vec![0];
-        let mut index = 0;
+        let mut token_stack = Vec::new();
+        let mut ast_stack = Vec::new();
         let to_terminal = |token: &T| *self.terminal_map.get(token.to_terminal_name()).unwrap();
         while !stack.is_empty() {
-            let terminal = if index >= tokens.len() {
-                self.action[0].len() - 1
+            let terminal = if let Some(token) = tokens.front() {
+                to_terminal(token)
             } else {
-                to_terminal(&tokens[index])
+                self.action[0].len() - 1
             };
             let state = *stack.last().unwrap();
             match self.action[state][terminal] {
                 MoveIn(next) => {
                     stack.push(next);
                     debug!("push {}", next);
-                    if index < tokens.len() {
-                        index += 1;
-                    }
+                    token_stack.push(tokens.pop_front().unwrap());
                 }
-                Reduce(left, right_count) => {
-                    for _ in 0..right_count {
+                Reduce(production_index, left, terminal_count, non_terminal_count) => {
+                    for _ in 0..terminal_count + non_terminal_count {
                         debug!("pop {}", stack.last().unwrap());
                         stack.pop();
                     }
-                    let next = self.goto[*stack.last().unwrap()][left].unwrap();
+                    let tokens = token_stack
+                        .drain(token_stack.len() - terminal_count..token_stack.len())
+                        .collect();
+                    let ast = ast_stack
+                        .drain(ast_stack.len() - non_terminal_count..ast_stack.len())
+                        .collect();
+                    let current = *stack.last().unwrap();
+                    let new_ast = self.ast_builders[production_index - 1](tokens, ast);
+                    ast_stack.push(new_ast);
+                    let next = self.goto[current][left].unwrap();
                     stack.push(next);
                     debug!("push {}", next);
                 }
                 Finish => {
-                    return;
+                    return ast_stack.pop().unwrap();
                 }
                 Error => {
                     let state = *stack.last().unwrap();
@@ -467,6 +493,7 @@ impl Grammar {
                 }
             }
         }
+        unreachable!();
     }
 }
 #[derive(Debug, Clone)]
@@ -476,14 +503,16 @@ struct Production {
 }
 macro_rules! parser {
     (
-     ParserName: $parser_name:tt;
+     ParserName = $parser_name:tt;
+     Token = $tokens_name:ident:$tokens_type:ty;
+     AST = $ast_name:ident:$ast_type:ty;
      Terminals: $($terminals:tt),+;
-     $($left:tt -> $($($right:tt),+)|+);+
+     $($left:tt -> $($($right:tt),+ => $ast_builder:block)|+);+
      ) => {
         pub struct $parser_name {}
         {
             lazy_static! {
-                static ref GRAMMAR: Grammar = {
+                static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
                     let mut terminal_map = HashMap::new();
                     $({
                         let len = terminal_map.len() as usize;
@@ -525,15 +554,16 @@ macro_rules! parser {
                             vec![$(stringify!($terminals)),+],
                             non_terminal_map,
                             vec!["S'", $(stringify!($left)),+],
-                            productions
-                        )
+                            productions,
+                            vec![$($(Box::new(|mut $tokens_name, mut $ast_name| $ast_builder)),+),+]
+                    )
                 };
             }
             impl $parser_name {
                 pub fn new() -> Self {
                     Self {}
                 }
-                pub fn grammar(&self) -> &'static Grammar {
+                pub fn grammar(&self) -> &'static Grammar<$tokens_type, $ast_type> {
                     &GRAMMAR
                 }
             }
@@ -581,23 +611,58 @@ fn test_parser() {
     //    S -> C, C;
     //    C -> c, C | d
     //);
+    #[derive(Debug)]
+    enum AST {
+        Function { name: String, param_list: Vec<i32> },
+        ParamList(Vec<i32>),
+    }
+    use crate::lexer::*;
     parser!(
-        ParserName: LuaParser;
+        ParserName = LuaParser;
+        Token = token: Token;
+        AST = ast: AST;
         Terminals: id, comma, left_bracket, right_bracket, number;
-        Function -> id, left_bracket, ParamList, right_bracket;
-        ParamList -> number, comma, ParamList 
-            | number, comma 
-            | number
+        Function -> id, left_bracket, ParamList, right_bracket => {
+            if let Token::Id(name) = token.pop_front().unwrap() {
+                if let AST::ParamList(param_list) = ast.pop_front().unwrap() {
+                    return AST::Function{ name, param_list };
+                }
+            }
+            unreachable!()
+        };
+        ParamList -> ParamList, comma, number => {
+            if let AST::ParamList(mut param_list) = ast.pop_front().unwrap() {
+                token.pop_front();
+                if let Token::Number(number) = token.pop_front().unwrap() {
+                    param_list.push(number);
+                    return AST::ParamList(param_list);
+                }
+            }
+            unreachable!()
+
+        }
+        | number => {
+            if let Token::Number(number) = token.pop_front().unwrap() {
+                return AST::ParamList(vec![number]);
+            }
+            unreachable!()
+        }
     );
+    impl ToTerminalName for Token {
+        fn to_terminal_name(&self) -> &'static str {
+            match self {
+                Token::Id(_) => "id",
+                Token::Number(_) => "number",
+                Token::Comma => "comma",
+                Token::LeftBracket => "left_bracket",
+                Token::RightBracket => "right_bracket",
+                Token::Error => unreachable!(),
+            }
+        }
+    }
+    use logos::Logos;
     let _ = pretty_env_logger::init();
     let parser = LuaParser::new();
-    parser.grammar().parse(vec![
-        "id",
-        "left_bracket",
-        "number",
-        "comma",
-        "number",
-        "comma",
-        "right_bracket",
-    ]);
+    let tokens: VecDeque<_> = Token::lexer("print(3, 5, 3)").collect();
+    println!("{:?}", parser.grammar().parse(tokens));
 }
