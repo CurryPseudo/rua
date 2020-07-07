@@ -501,73 +501,73 @@ struct Production {
     left: usize,
     right: Vec<Symbol>,
 }
+#[allow(unused_macros)]
 macro_rules! parser {
     (
-     ParserName = $parser_name:tt;
+     ParseFunctionName = $parser_name:ident;
      Token = $tokens_name:ident:$tokens_type:ty;
      AST = $ast_name:ident:$ast_type:ty;
      Terminals: $($terminals:tt),+;
      $($left:tt -> $($($right:tt),+ => $ast_builder:block)|+);+
      ) => {
-        pub struct $parser_name {}
-        {
-            lazy_static! {
-                static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
-                    let mut terminal_map = HashMap::new();
-                    $({
-                        let len = terminal_map.len() as usize;
-                        terminal_map.insert(stringify!($terminals), len);
-                      }
-                    )+
-                    let mut non_terminal_map = HashMap::new();
-                    $({
-                        let len = non_terminal_map.len() as usize;
-                        non_terminal_map.insert(stringify!($left), len + 1);
-                      }
-                    )+
-                    let name_to_symbol = |s| {
-                        if let Some(non_terminal) = non_terminal_map.get(s) {
-                            Some(NonTerminal(*non_terminal))
-                        } else if let Some(terminal) = terminal_map.get(s) {
-                            Some(Terminal(*terminal))
-                        }
-                        else {
-                            None
-                        }
-                    };
-                    let productions = vec![
-                        (
-                            0,
-                            vec![vec![NonTerminal(1)]]
-                        ),
-                        $(
-                            (
-                                *non_terminal_map.get(stringify!($left)).unwrap(),
-                                vec![$(vec![$(
-                                    name_to_symbol(stringify!($right)).unwrap()
-                                ),+]),+]
-                            )
-                        ),+
-                    ];
-                    Grammar::new(
-                            terminal_map,
-                            vec![$(stringify!($terminals)),+],
-                            non_terminal_map,
-                            vec!["S'", $(stringify!($left)),+],
-                            productions,
-                            vec![$($(Box::new(|mut $tokens_name, mut $ast_name| $ast_builder)),+),+]
-                    )
+        lazy_static! {
+            static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
+                let mut terminal_map = HashMap::new();
+                $({
+                    let len = terminal_map.len() as usize;
+                    terminal_map.insert(stringify!($terminals), len);
+                  }
+                )+
+                let mut non_terminal_map = HashMap::new();
+                $({
+                    let len = non_terminal_map.len() as usize;
+                    non_terminal_map.insert(stringify!($left), len + 1);
+                  }
+                )+
+                let name_to_symbol = |s| {
+                    if let Some(non_terminal) = non_terminal_map.get(s) {
+                        Some(NonTerminal(*non_terminal))
+                    } else if let Some(terminal) = terminal_map.get(s) {
+                        Some(Terminal(*terminal))
+                    }
+                    else {
+                        None
+                    }
                 };
-            }
-            impl $parser_name {
-                pub fn new() -> Self {
-                    Self {}
-                }
-                pub fn grammar(&self) -> &'static Grammar<$tokens_type, $ast_type> {
-                    &GRAMMAR
-                }
-            }
+                let productions = vec![
+                    (
+                        0,
+                        vec![vec![NonTerminal(1)]]
+                    ),
+                    $(
+                        (
+                            *non_terminal_map.get(stringify!($left)).unwrap(),
+                            vec![$(vec![$(
+                                name_to_symbol(stringify!($right)).unwrap()
+                            ),+]),+]
+                        )
+                    ),+
+                ];
+                #[allow(unused_mut)]
+                #[allow(unused_variables)]
+                Grammar::new(
+                        terminal_map,
+                        vec![$(stringify!($terminals)),+],
+                        non_terminal_map,
+                        vec!["S'", $(stringify!($left)),+],
+                        productions,
+                        vec![$($(Box::new(|mut $tokens_name, mut $ast_name| $ast_builder)),+),+]
+                )
+            };
         }
+        fn $parser_name(tokens: VecDeque<$tokens_type>) -> $ast_type {
+            GRAMMAR.parse(tokens)
+        }
+    };
+}
+macro_rules! pop_front_unwrap {
+    ($vec_deque:ident, $into_inner:tt) => {
+        $vec_deque.pop_front().unwrap().$into_inner().unwrap()
     };
 }
 fn str_join<I: Iterator<Item = S>, S: ToString>(mut iter: I, join_with: &str) -> String {
@@ -611,41 +611,33 @@ fn test_parser() {
     //    S -> C, C;
     //    C -> c, C | d
     //);
-    #[derive(Debug)]
+    use enum_as_inner::EnumAsInner;
+    #[derive(Debug, EnumAsInner)]
     enum AST {
         Function { name: String, param_list: Vec<i32> },
         ParamList(Vec<i32>),
     }
     use crate::lexer::*;
     parser!(
-        ParserName = LuaParser;
+        ParseFunctionName = lua_parse;
         Token = token: Token;
         AST = ast: AST;
         Terminals: id, comma, left_bracket, right_bracket, number;
         Function -> id, left_bracket, ParamList, right_bracket => {
-            if let Token::Id(name) = token.pop_front().unwrap() {
-                if let AST::ParamList(param_list) = ast.pop_front().unwrap() {
-                    return AST::Function{ name, param_list };
-                }
-            }
-            unreachable!()
+            let name = pop_front_unwrap!(token, into_id);
+            let param_list = pop_front_unwrap!(ast, into_param_list);
+            AST::Function{ name, param_list }
         };
         ParamList -> ParamList, comma, number => {
-            if let AST::ParamList(mut param_list) = ast.pop_front().unwrap() {
-                token.pop_front();
-                if let Token::Number(number) = token.pop_front().unwrap() {
-                    param_list.push(number);
-                    return AST::ParamList(param_list);
-                }
-            }
-            unreachable!()
-
+            let mut param_list = pop_front_unwrap!(ast, into_param_list);
+            token.pop_front();
+            let number = pop_front_unwrap!(token, into_number);
+            param_list.push(number);
+            AST::ParamList(param_list)
         }
         | number => {
-            if let Token::Number(number) = token.pop_front().unwrap() {
-                return AST::ParamList(vec![number]);
-            }
-            unreachable!()
+            let number = pop_front_unwrap!(token, into_number);
+            AST::ParamList(vec![number])
         }
     );
     impl ToTerminalName for Token {
@@ -662,7 +654,6 @@ fn test_parser() {
     }
     use logos::Logos;
     let _ = pretty_env_logger::init();
-    let parser = LuaParser::new();
     let tokens: VecDeque<_> = Token::lexer("print(3, 5, 3)").collect();
-    println!("{:?}", parser.grammar().parse(tokens));
+    println!("{:?}", lua_parse(tokens));
 }

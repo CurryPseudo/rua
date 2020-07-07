@@ -1,7 +1,8 @@
 use logos::Lexer;
 use logos::Logos;
+use enum_as_inner::EnumAsInner;
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(Logos, Debug, PartialEq, EnumAsInner)]
 pub enum Token {
     #[regex(r"[a-zA-Z][a-zA-Z0-9_]*", same)]
     Id(String),
