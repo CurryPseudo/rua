@@ -11,9 +11,11 @@ pub enum Instruction {
     LoadK(u32, u32),
     Call(u32, u32, u32),
     Move(u32, u32),
+    ADD(u32, i32, i32),
     Return(u32, u32),
 }
 
+#[derive(Debug)]
 pub struct VM {
     pub stack: Vec<CallInfo>,
     pub constants: Vec<Value>,
@@ -22,6 +24,7 @@ pub struct VM {
     pub up_value: Vec<Table>,
 }
 
+#[derive(Debug)]
 pub struct CallInfo {
     pub registers: Vec<Value>,
     pub constant_offset: usize,
@@ -88,6 +91,9 @@ impl VM {
             }
             Instruction::Move(a, b) => {
                 *self.r_register_mut(a) = self.r_register(b).clone();
+            }
+            Instruction::ADD(a, b, c) => {
+                *self.r_register_mut(a) = self.rk_register(b) + self.rk_register(c);
             }
         }
         self.current_instruction += 1;

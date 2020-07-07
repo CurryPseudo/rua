@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use super::*;
+#[derive(Debug)]
 pub struct Table(HashMap<Value, Value>);
 impl Table {
     pub fn new() -> Self {

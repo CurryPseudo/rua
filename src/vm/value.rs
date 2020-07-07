@@ -15,3 +15,29 @@ impl ToString for Value {
         }
     }
 }
+
+impl std::ops::Add<&Value> for &Value {
+    type Output = Value;
+    fn add(self, rhs: &Value) -> Value {
+        match self {
+            Value::Number(x) => {
+                match rhs {
+                    Value::Number(y) => {
+                        return Value::Number(x + y);
+                    }
+                    _ => ()
+                }
+            }
+            Value::String(x) => {
+                match rhs {
+                    Value::String(y) => {
+                        return Value::String(format!("{}{}", x, y));
+                    }
+                    _ => ()
+                }
+            }
+            _ => ()
+        }
+        panic!("try to add a {:?} with {:?}", self, rhs);
+    }
+}

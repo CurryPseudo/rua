@@ -219,29 +219,43 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                 },
             );
         }
-        let mut lalr_generated_terminal = vec![HashSet::new(); g.len()];
-        let mut lalr_propagated_path = vec![HashSet::new(); g.len()];
-        {
-            let mut item_to_state = HashMap::new();
-            for (i, g) in g.iter().enumerate() {
-                for item in closure(g.clone()) {
-                    item_to_state.entry(item).or_insert_with(Vec::new).push(i);
+        let item_to_index: Vec<_> = g
+            .iter()
+            .map(|items| {
+                let mut map = HashMap::new();
+                for (i, item) in items.iter().enumerate() {
+                    map.insert(item.clone(), i);
                 }
-            }
+                map
+            })
+            .collect();
+        macro_rules! create_item_symbol_set {
+            () => {
+                g.iter()
+                    .map(|items| items.iter().map(|_| HashSet::new()).collect::<Vec<_>>())
+                    .collect::<Vec<Vec<HashSet<_>>>>()
+            };
+        }
+        let mut lalr_generated_terminal = create_item_symbol_set!();
+        let mut lalr_propagated_path = create_item_symbol_set!();
+        {
             for i in 0..g.len() {
-                dfs(
-                    g[i].iter().map(|item| (None, *item)).collect(),
-                    |(option_terminals, item)| {
-                        if let Some(symbol) = get_symbol(&item) {
-                            let state = goto[&(i, *symbol)];
-                            if let Some(terminal) = option_terminals {
-                                lalr_generated_terminal[state].insert(terminal);
-                            } else {
-                                lalr_propagated_path[i].insert(state);
-                            }
+                let mut begin = Vec::new();
+                for (j, item) in g[i].iter().enumerate() {
+                    begin.push((None, j, item.clone()));
+                }
+                dfs(begin, |(option_terminals, kernel_item_index, item)| {
+                    let mut next = Vec::new();
+                    if let Some(symbol) = get_symbol(&item) {
+                        let next_state = goto[&(i, *symbol)];
+                        let next_item_index = item_to_index[next_state][&item.acc()];
+                        if let Some(terminal) = option_terminals {
+                            lalr_generated_terminal[next_state][next_item_index].insert(terminal);
+                        } else {
+                            lalr_propagated_path[i][kernel_item_index]
+                                .insert((next_state, next_item_index));
                         }
-                        let mut next = Vec::new();
-                        if let Some(NonTerminal(non_terminal)) = get_symbol(&item) {
+                        if let NonTerminal(non_terminal) = symbol {
                             let look_forward_symbols = if let Some(symbol) =
                                 get_symbol(&item.clone().acc())
                             {
@@ -254,32 +268,40 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                             };
                             for look_forward_symbol in &look_forward_symbols {
                                 for production in &non_terminal_to_production[*non_terminal] {
-                                    next.push((*look_forward_symbol, Item::new(*production, 0)));
+                                    next.push((
+                                        *look_forward_symbol,
+                                        kernel_item_index,
+                                        Item::new(*production, 0),
+                                    ));
                                 }
                             }
                         }
-                        next
-                    },
-                );
+                    }
+                    next
+                });
             }
         }
-        let mut look_forward_terminal = vec![HashSet::new(); g.len()];
+        let mut look_forward_terminal = create_item_symbol_set!();
         dfs(
             {
                 let mut begin = Vec::new();
-                for (i, generateds) in lalr_generated_terminal.iter().enumerate() {
-                    for generated in generateds {
-                        begin.push((i, Normal(*generated)));
+                for (i, item_generateds) in lalr_generated_terminal.iter().enumerate() {
+                    for (j, generateds) in item_generateds.iter().enumerate() {
+                        for generated in generateds {
+                            begin.push((i, j, Normal(*generated)));
+                        }
                     }
                 }
-                begin.push((0, End));
+                begin.push((0, 0, End));
                 begin
             },
-            |(i, terminal)| {
-                look_forward_terminal[i].insert(terminal);
-                lalr_propagated_path[i]
+            |(i, j, terminal)| {
+                look_forward_terminal[i][j].insert(terminal);
+                lalr_propagated_path[i][j]
                     .iter()
-                    .map(|propagated| (*propagated, terminal))
+                    .map(|(propagated_state, propagated_item)| {
+                        (*propagated_state, *propagated_item, terminal)
+                    })
                     .collect()
             },
         );
@@ -297,8 +319,42 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
         for i in 0..debug_info.g.len() {
             let items = &debug_info.g[i];
             debug!("I{}", i);
-            for item in items {
+            for (j, item) in items.iter().enumerate() {
                 debug!("{}", debug_info.print_item(item));
+                debug!(
+                    "generated [{}]",
+                    str_join(
+                        lalr_generated_terminal[i][j]
+                            .iter()
+                            .map(|terminal| debug_info.terminals[*terminal]),
+                        ","
+                    )
+                );
+                debug!(
+                    "propagated [{}]",
+                    str_join(
+                        lalr_propagated_path[i][j]
+                            .iter()
+                            .map(|(state, item_index)| format!(
+                                "I{} {}",
+                                state,
+                                debug_info.print_item(&debug_info.g[*state][*item_index])
+                            )),
+                        ","
+                    )
+                );
+                debug!(
+                    "final [{}]",
+                    str_join(
+                        look_forward_terminal[i][j].iter().map(|terminal| {
+                            match terminal {
+                                End => "$",
+                                Normal(t) => debug_info.terminals[*t],
+                            }
+                        }),
+                        ","
+                    )
+                );
             }
             for item in closure(items.clone())
                 .iter()
@@ -313,36 +369,6 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                     goto.get(&(i, *symbol)).unwrap()
                 );
             }
-            debug!(
-                "generated [{}]",
-                str_join(
-                    lalr_generated_terminal[i]
-                        .iter()
-                        .map(|terminal| debug_info.terminals[*terminal]),
-                    ","
-                )
-            );
-            debug!(
-                "propagated [{}]",
-                str_join(
-                    lalr_propagated_path[i]
-                        .iter()
-                        .map(|state| format!("I{}", state)),
-                    ","
-                )
-            );
-            debug!(
-                "final [{}]",
-                str_join(
-                    look_forward_terminal[i].iter().map(|terminal| {
-                        match terminal {
-                            End => "$",
-                            Normal(t) => debug_info.terminals[*t],
-                        }
-                    }),
-                    ","
-                )
-            );
         }
         for i in 0..first.len() {
             debug!(
@@ -354,7 +380,8 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                 )
             );
         }
-        let mut action_table = vec![vec![Error; debug_info.terminals.len() + 1]; debug_info.g.len()];
+        let mut action_table =
+            vec![vec![Error; debug_info.terminals.len() + 1]; debug_info.g.len()];
         let mut goto_table = vec![vec![None; debug_info.non_terminals.len()]; debug_info.g.len()];
         for i in 0..debug_info.g.len() {
             for j in 0..debug_info.terminals.len() + 1 {
@@ -370,9 +397,9 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                 } else {
                     Normal(j)
                 };
-                if look_forward_terminal[i].contains(&terminal) {
-                    let mut reduce = None;
-                    for item in &debug_info.g[i] {
+                let mut reduce = None;
+                for (k, item) in debug_info.g[i].iter().enumerate() {
+                    if look_forward_terminal[i][k].contains(&terminal) {
                         let production = &debug_info.productions[item.production_index];
                         if production.right.len() == item.position {
                             if reduce.is_none() {
@@ -399,35 +426,33 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                                 panic!("Reduce/reduce conflict");
                             }
                         }
-                    }
-                    if let Some(reduce) = reduce {
-                        if has_goto {
-                            error!("In state productions:");
-                            for production in debug_info.print_state_items(i) {
-                                error!("{}", production);
-                            }
-                            if let MoveIn(next) = action_table[i][j] {
-                                error!("Move by [{}] to state:", debug_info.to_name(&Terminal(j)));
-                                for production in debug_info.print_state_items(next) {
+                        if let Some(reduce) = reduce {
+                            if has_goto {
+                                error!("In I{} productions:", i);
+                                for production in debug_info.print_state_items(i) {
                                     error!("{}", production);
                                 }
+                                if let MoveIn(next) = action_table[i][j] {
+                                    error!(
+                                        "Move by [{}] to I{}:",
+                                        debug_info.to_name(&Terminal(j)),
+                                        next
+                                    );
+                                    for production in debug_info.print_state_items(next) {
+                                        error!("{}", production);
+                                    }
+                                }
+                                if let Reduce(production_index, _, _, _) = reduce {
+                                    error!(
+                                        "But need to reduce by [{}], with production [{}]",
+                                        debug_info.to_name(&Terminal(j)),
+                                        debug_info.print_production(production_index)
+                                    );
+                                }
+                                panic!("Move-in/reduce conflict");
                             }
-                            if let Reduce(
-                                production_index,
-                                _,
-                                _,
-                                _,
-                            ) = reduce
-                            {
-                                error!(
-                                    "But need to reduce by [{}], with production [{}]",
-                                    debug_info.to_name(&Terminal(j)),
-                                    debug_info.print_production(production_index)
-                                );
-                            }
-                            panic!("Move-in/reduce conflict");
+                            action_table[i][j] = reduce;
                         }
-                        action_table[i][j] = reduce;
                     }
                 }
             }

@@ -20,6 +20,8 @@ pub enum Token {
     LOCAL,
     #[token("=")]
     EQUAL,
+    #[token("+")]
+    ADD,
     #[error]
     #[regex(r"[ \t\n\f]+", logos::skip)]
     ERROR

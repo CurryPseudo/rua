@@ -1,7 +1,6 @@
 use crate::*;
 use enum_as_inner::EnumAsInner;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 #[macro_use]
 mod lalr1;
 use crate::lexer::*;
@@ -18,23 +17,22 @@ enum AST {
     LocalVariableDeclare(String, Box<AST>),
     FunctionCall(String, Box<AST>),
     ParamList(Vec<AST>),
-    Statements(VecDeque<AST>),
+    Statements(Vec<AST>),
+    BinaryOp(Token, Box<AST>, Box<AST>),
 }
 use AST::*;
 parser!(
     ParseFunctionName = lua_parse;
     Token = token: Token;
     AST = ast: AST;
-    Statements -> Statement, Statements => {
-        let function = ast.pop_front().unwrap();
+    Statements -> Statements, Statement => {
         let mut functions = pop_front_unwrap!(ast, into_statements);
-        functions.push_front(function);
+        let function = ast.pop_front().unwrap();
+        functions.push(function);
         Statements(functions)
     }
     | Statement => {
-        let mut r = VecDeque::new();
-        r.push_front(ast.pop_front().unwrap());
-        Statements(r)
+        Statements(vec![ast.pop_front().unwrap()])
     };
     Statement -> LOCAL, ID, EQUAL, Expression => {
         token.pop_front();
@@ -44,7 +42,16 @@ parser!(
     | FunctionCall => {
         ast.pop_front().unwrap()
     };
-    Expression -> FunctionCall => {
+    Expression -> Expression, ADD, Expression0 => {
+        let left = ast.pop_front().unwrap();
+        let right = ast.pop_front().unwrap();
+        let op = token.pop_front().unwrap();
+        BinaryOp(op, left.into(), right.into())
+    }
+    | Expression0 => {
+        ast.pop_front().unwrap()
+    };
+    Expression0 -> FunctionCall => {
         ast.pop_front().unwrap()
     }
     | NUMBER => {
@@ -119,6 +126,23 @@ impl FunctionStack {
     fn get_constant_rk_index(&mut self, value: Value) -> i32 {
         -1 - self.get_constant_index(value) as i32
     }
+    fn get_expression_rk_index(&mut self, free_register: Option<u32>, expression: AST) -> i32 {
+        match expression {
+            Literal(number) => self.get_constant_rk_index(Value::Number(number)),
+            LocalVariable(id) => {
+                if let Some(b) = self.get_variable_index(&id) {
+                    b as i32
+                } else {
+                    panic!("Cant find symbol {}", id);
+                }
+            }
+            other => {
+                let r = free_register.unwrap_or_else(|| self.get_free_variable_index_temp(1));
+                self.set_expression_to_register(r, other);
+                r as i32
+            }
+        }
+    }
     fn set_expression_to_register(&mut self, register: u32, expression: AST) {
         match expression {
             Literal(number) => {
@@ -132,6 +156,14 @@ impl FunctionStack {
                     panic!("Cant find symbol {}", id);
                 }
             }
+            BinaryOp(op, left, right) => match op {
+                Token::ADD => {
+                    let b = self.get_expression_rk_index(Some(register), *left);
+                    let c = self.get_expression_rk_index(None, *right);
+                    self.instructions.push(Instruction::ADD(register, b, c));
+                }
+                _ => unreachable!(),
+            },
             _ => {
                 panic!();
             }

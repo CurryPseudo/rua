@@ -24,5 +24,6 @@ fn main() {
     lua_file.read_to_string(&mut lua_content).unwrap();
     add_code(&lua_content, &mut vm);
     vm.instructions.push(Instruction::Return(0, 1));
+    debug!("{:#?}", vm);
     while vm.run() {}
 }
