@@ -16,9 +16,9 @@ impl LuaFunction for Print {
         if !args.is_empty() {
             to_print.push_str(args[0].to_string().as_str())
         }
-        for _ in 1..args.len() {
+        for i in 1..args.len() {
             to_print.push(' ');
-            to_print.push_str(args[1].to_string().as_str())
+            to_print.push_str(args[i].to_string().as_str())
         }
         println!("{}", to_print);
         Vec::new()

@@ -4,14 +4,10 @@ use std::collections::VecDeque;
 use std::hash::Hash;
 pub trait ToTerminalName {
     fn to_terminal_name(&self) -> &'static str;
-}
-impl ToTerminalName for &'static str {
-    fn to_terminal_name(&self) -> &'static str {
-        *self
-    }
+    fn all_terminal_names() -> &'static [&'static str];
 }
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-enum Symbol {
+pub enum Symbol {
     NonTerminal(usize),
     Terminal(usize),
 }
@@ -121,7 +117,7 @@ impl Item {
 }
 
 impl<T: ToTerminalName, A> Grammar<T, A> {
-    fn new(
+    pub fn new(
         terminal_map: HashMap<&'static str, usize>,
         terminals: Vec<&'static str>,
         non_terminal_map: HashMap<&'static str, usize>,
@@ -289,62 +285,6 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                     .collect()
             },
         );
-        let mut action_table = vec![vec![Error; terminals.len() + 1]; g.len()];
-        let mut goto_table = vec![vec![None; non_terminals.len()]; g.len()];
-        for i in 0..g.len() {
-            for j in 0..terminals.len() + 1 {
-                let mut has_goto = false;
-                if j != terminals.len() {
-                    if let Some(k) = goto.get(&(i, Terminal(j))) {
-                        has_goto = true;
-                        action_table[i][j] = MoveIn(*k);
-                    }
-                }
-                let terminal = if j == terminals.len() { End } else { Normal(j) };
-                if look_forward_terminal[i].contains(&terminal) {
-                    let mut reduce = None;
-                    for item in &g[i] {
-                        let production = &productions[item.production_index];
-                        if production.right.len() == item.position {
-                            if reduce.is_none() {
-                                if production.left == 0 {
-                                    reduce = Some(Finish);
-                                } else {
-                                    let mut terminal_count = 0;
-                                    let mut non_terminal_count = 0;
-                                    for symbol in &production.right {
-                                        if let Terminal(_) = symbol {
-                                            terminal_count += 1;
-                                        } else {
-                                            non_terminal_count += 1;
-                                        }
-                                    }
-                                    reduce = Some(Reduce(
-                                        item.production_index,
-                                        production.left,
-                                        terminal_count,
-                                        non_terminal_count,
-                                    ));
-                                }
-                            } else {
-                                panic!("Reduce/reduce conflict");
-                            }
-                        }
-                    }
-                    if let Some(reduce) = reduce {
-                        if has_goto {
-                            panic!("Move-in/reduce conflict");
-                        }
-                        action_table[i][j] = reduce;
-                    }
-                }
-            }
-            for j in 0..non_terminals.len() {
-                if let Some(k) = goto.get(&(i, NonTerminal(j))) {
-                    goto_table[i][j] = Some(*k);
-                }
-            }
-        }
         let debug_info = GrammarDebugInfo {
             terminals,
             non_terminals,
@@ -352,7 +292,7 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
             productions: productions.clone(),
         };
         debug!("{}", str_join(debug_info.terminals.iter().copied(), " "));
-        for production in 0..productions.len() {
+        for production in 0..debug_info.productions.len() {
             debug!("{}", debug_info.print_production(production));
         }
         debug!("LR(0):");
@@ -415,6 +355,89 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                     ","
                 )
             );
+        }
+        let mut action_table = vec![vec![Error; debug_info.terminals.len() + 1]; debug_info.g.len()];
+        let mut goto_table = vec![vec![None; debug_info.non_terminals.len()]; debug_info.g.len()];
+        for i in 0..debug_info.g.len() {
+            for j in 0..debug_info.terminals.len() + 1 {
+                let mut has_goto = false;
+                if j != debug_info.terminals.len() {
+                    if let Some(k) = goto.get(&(i, Terminal(j))) {
+                        has_goto = true;
+                        action_table[i][j] = MoveIn(*k);
+                    }
+                }
+                let terminal = if j == debug_info.terminals.len() {
+                    End
+                } else {
+                    Normal(j)
+                };
+                if look_forward_terminal[i].contains(&terminal) {
+                    let mut reduce = None;
+                    for item in &debug_info.g[i] {
+                        let production = &debug_info.productions[item.production_index];
+                        if production.right.len() == item.position {
+                            if reduce.is_none() {
+                                if production.left == 0 && j == debug_info.terminals.len() {
+                                    reduce = Some(Finish);
+                                } else {
+                                    let mut terminal_count = 0;
+                                    let mut non_terminal_count = 0;
+                                    for symbol in &production.right {
+                                        if let Terminal(_) = symbol {
+                                            terminal_count += 1;
+                                        } else {
+                                            non_terminal_count += 1;
+                                        }
+                                    }
+                                    reduce = Some(Reduce(
+                                        item.production_index,
+                                        production.left,
+                                        terminal_count,
+                                        non_terminal_count,
+                                    ));
+                                }
+                            } else {
+                                panic!("Reduce/reduce conflict");
+                            }
+                        }
+                    }
+                    if let Some(reduce) = reduce {
+                        if has_goto {
+                            error!("In state productions:");
+                            for production in debug_info.print_state_items(i) {
+                                error!("{}", production);
+                            }
+                            if let MoveIn(next) = action_table[i][j] {
+                                error!("Move by [{}] to state:", debug_info.to_name(&Terminal(j)));
+                                for production in debug_info.print_state_items(next) {
+                                    error!("{}", production);
+                                }
+                            }
+                            if let Reduce(
+                                production_index,
+                                _,
+                                _,
+                                _,
+                            ) = reduce
+                            {
+                                error!(
+                                    "But need to reduce by [{}], with production [{}]",
+                                    debug_info.to_name(&Terminal(j)),
+                                    debug_info.print_production(production_index)
+                                );
+                            }
+                            panic!("Move-in/reduce conflict");
+                        }
+                        action_table[i][j] = reduce;
+                    }
+                }
+            }
+            for j in 0..debug_info.non_terminals.len() {
+                if let Some(k) = goto.get(&(i, NonTerminal(j))) {
+                    goto_table[i][j] = Some(*k);
+                }
+            }
         }
         Self {
             terminal_map,
@@ -507,17 +530,16 @@ macro_rules! parser {
      ParseFunctionName = $parser_name:ident;
      Token = $tokens_name:ident:$tokens_type:ty;
      AST = $ast_name:ident:$ast_type:ty;
-     Terminals: $($terminals:tt),+;
      $($left:tt -> $($($right:tt),+ => $ast_builder:block)|+);+
      ) => {
         lazy_static! {
             static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
+                use std::collections::HashMap;
                 let mut terminal_map = HashMap::new();
-                $({
+                for terminal in <$tokens_type>::all_terminal_names() {
                     let len = terminal_map.len() as usize;
-                    terminal_map.insert(stringify!($terminals), len);
-                  }
-                )+
+                    terminal_map.insert(*terminal, len);
+                }
                 let mut non_terminal_map = HashMap::new();
                 $({
                     let len = non_terminal_map.len() as usize;
@@ -526,9 +548,9 @@ macro_rules! parser {
                 )+
                 let name_to_symbol = |s| {
                     if let Some(non_terminal) = non_terminal_map.get(s) {
-                        Some(NonTerminal(*non_terminal))
+                        Some(Symbol::NonTerminal(*non_terminal))
                     } else if let Some(terminal) = terminal_map.get(s) {
-                        Some(Terminal(*terminal))
+                        Some(Symbol::Terminal(*terminal))
                     }
                     else {
                         None
@@ -537,7 +559,7 @@ macro_rules! parser {
                 let productions = vec![
                     (
                         0,
-                        vec![vec![NonTerminal(1)]]
+                        vec![vec![Symbol::NonTerminal(1)]]
                     ),
                     $(
                         (
@@ -552,7 +574,7 @@ macro_rules! parser {
                 #[allow(unused_variables)]
                 Grammar::new(
                         terminal_map,
-                        vec![$(stringify!($terminals)),+],
+                        <$tokens_type>::all_terminal_names().iter().copied().collect(),
                         non_terminal_map,
                         vec!["S'", $(stringify!($left)),+],
                         productions,
@@ -560,14 +582,9 @@ macro_rules! parser {
                 )
             };
         }
-        fn $parser_name(tokens: VecDeque<$tokens_type>) -> $ast_type {
+        fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
             GRAMMAR.parse(tokens)
         }
-    };
-}
-macro_rules! pop_front_unwrap {
-    ($vec_deque:ident, $into_inner:tt) => {
-        $vec_deque.pop_front().unwrap().$into_inner().unwrap()
     };
 }
 fn str_join<I: Iterator<Item = S>, S: ToString>(mut iter: I, join_with: &str) -> String {
@@ -595,65 +612,4 @@ fn dfs<T: Hash + PartialEq + Eq + Clone, N: FnMut(T) -> Vec<T>>(begins: Vec<T>, 
             }
         }
     }
-}
-#[test]
-fn test_parser() {
-    //parser!(
-    //    ParserName: LuaParser;
-    //    Terminals: *, id, =;
-    //    S -> L, =, R | R;
-    //    L -> *, R | id;
-    //    R -> L
-    //);
-    //parser!(
-    //    ParserName: LuaParser;
-    //    Terminals: c, d;
-    //    S -> C, C;
-    //    C -> c, C | d
-    //);
-    use enum_as_inner::EnumAsInner;
-    #[derive(Debug, EnumAsInner)]
-    enum AST {
-        Function { name: String, param_list: Vec<i32> },
-        ParamList(Vec<i32>),
-    }
-    use crate::lexer::*;
-    parser!(
-        ParseFunctionName = lua_parse;
-        Token = token: Token;
-        AST = ast: AST;
-        Terminals: id, comma, left_bracket, right_bracket, number;
-        Function -> id, left_bracket, ParamList, right_bracket => {
-            let name = pop_front_unwrap!(token, into_id);
-            let param_list = pop_front_unwrap!(ast, into_param_list);
-            AST::Function{ name, param_list }
-        };
-        ParamList -> ParamList, comma, number => {
-            let mut param_list = pop_front_unwrap!(ast, into_param_list);
-            token.pop_front();
-            let number = pop_front_unwrap!(token, into_number);
-            param_list.push(number);
-            AST::ParamList(param_list)
-        }
-        | number => {
-            let number = pop_front_unwrap!(token, into_number);
-            AST::ParamList(vec![number])
-        }
-    );
-    impl ToTerminalName for Token {
-        fn to_terminal_name(&self) -> &'static str {
-            match self {
-                Token::Id(_) => "id",
-                Token::Number(_) => "number",
-                Token::Comma => "comma",
-                Token::LeftBracket => "left_bracket",
-                Token::RightBracket => "right_bracket",
-                Token::Error => unreachable!(),
-            }
-        }
-    }
-    use logos::Logos;
-    let _ = pretty_env_logger::init();
-    let tokens: VecDeque<_> = Token::lexer("print(3, 5, 3)").collect();
-    println!("{:?}", lua_parse(tokens));
 }
