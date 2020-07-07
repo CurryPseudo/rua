@@ -31,7 +31,6 @@ use Action::*;
 type ASTBuilder<T, A> = Box<dyn Sync + Fn(VecDeque<T>, VecDeque<A>) -> A>;
 pub struct Grammar<T, A> {
     terminal_map: HashMap<&'static str, usize>,
-    non_terminal_map: HashMap<&'static str, usize>,
     action: Vec<Vec<Action>>,
     goto: Vec<Vec<Option<usize>>>,
     debug_info: GrammarDebugInfo,
@@ -120,7 +119,6 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
     pub fn new(
         terminal_map: HashMap<&'static str, usize>,
         terminals: Vec<&'static str>,
-        non_terminal_map: HashMap<&'static str, usize>,
         non_terminals: Vec<&'static str>,
         split_productions: Vec<(usize, Vec<Vec<Symbol>>)>,
         ast_builders: Vec<ASTBuilder<T, A>>,
@@ -441,7 +439,6 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
         }
         Self {
             terminal_map,
-            non_terminal_map,
             action: action_table,
             goto: goto_table,
             debug_info,
@@ -575,7 +572,6 @@ macro_rules! parser {
                 Grammar::new(
                         terminal_map,
                         <$tokens_type>::all_terminal_names().iter().copied().collect(),
-                        non_terminal_map,
                         vec!["S'", $(stringify!($left)),+],
                         productions,
                         vec![$($(Box::new(|mut $tokens_name, mut $ast_name| $ast_builder)),+),+]
