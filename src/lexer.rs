@@ -7,18 +7,22 @@ use strum_macros::{IntoStaticStr, EnumVariantNames};
 #[allow(non_camel_case_types)]
 pub enum Token {
     #[regex(r"[a-zA-Z][a-zA-Z0-9_]*", same)]
-    id(String),
+    ID(String),
     #[token(",")]
-    comma,
+    COMMA,
     #[token("(")]
-    left_bracket,
+    LEFT_BRACKET,
     #[token(")")]
-    right_bracket,
+    RIGHT_BRACKET,
     #[regex(r"[0-9]+", number)]
-    number(i32),
+    NUMBER(i32),
+    #[token("local")]
+    LOCAL,
+    #[token("=")]
+    EQUAL,
     #[error]
     #[regex(r"[ \t\n\f]+", logos::skip)]
-    error
+    ERROR
 }
 
 fn same(lex: &mut Lexer<Token>) -> String {
@@ -36,12 +40,12 @@ fn number(lex: &mut Lexer<Token>) -> i32 {
 #[test]
 fn test_lexer() {
     let mut lex = Token::lexer("print(1)\nprint(2)");
-    assert_eq!(lex.next(), Some(Token::id(String::from("print"))));
-    assert_eq!(lex.next(), Some(Token::left_bracket));
-    assert_eq!(lex.next(), Some(Token::number(1)));
-    assert_eq!(lex.next(), Some(Token::right_bracket));
-    assert_eq!(lex.next(), Some(Token::id(String::from("print"))));
-    assert_eq!(lex.next(), Some(Token::left_bracket));
-    assert_eq!(lex.next(), Some(Token::number(2)));
-    assert_eq!(lex.next(), Some(Token::right_bracket));
+    assert_eq!(lex.next(), Some(Token::ID(String::from("print"))));
+    assert_eq!(lex.next(), Some(Token::LEFT_BRACKET));
+    assert_eq!(lex.next(), Some(Token::NUMBER(1)));
+    assert_eq!(lex.next(), Some(Token::RIGHT_BRACKET));
+    assert_eq!(lex.next(), Some(Token::ID(String::from("print"))));
+    assert_eq!(lex.next(), Some(Token::LEFT_BRACKET));
+    assert_eq!(lex.next(), Some(Token::NUMBER(2)));
+    assert_eq!(lex.next(), Some(Token::RIGHT_BRACKET));
 }

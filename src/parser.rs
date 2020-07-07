@@ -13,39 +13,58 @@ macro_rules! pop_front_unwrap {
 }
 #[derive(Debug, EnumAsInner)]
 enum AST {
-    Function { name: String, param_list: Box<AST> },
-    ParamList(Vec<i32>),
+    Literal(i32),
+    LocalVariable(String),
+    LocalVariableDeclare(String, Box<AST>),
+    FunctionCall(String, Box<AST>),
+    ParamList(Vec<AST>),
     Statements(VecDeque<AST>),
 }
+use AST::*;
 parser!(
     ParseFunctionName = lua_parse;
     Token = token: Token;
     AST = ast: AST;
-    Statements -> Function, Statements => {
+    Statements -> Statement, Statements => {
         let function = ast.pop_front().unwrap();
         let mut functions = pop_front_unwrap!(ast, into_statements);
         functions.push_front(function);
-        AST::Statements(functions)
+        Statements(functions)
     }
-    | Function => {
+    | Statement => {
         let mut r = VecDeque::new();
         r.push_front(ast.pop_front().unwrap());
-        AST::Statements(r)
+        Statements(r)
     };
-    Function -> id, left_bracket, ParamList, right_bracket => {
+    Statement -> LOCAL, ID, EQUAL, Expression => {
+        token.pop_front();
         let name = pop_front_unwrap!(token, into_id);
-        AST::Function{ name, param_list: Box::new(ast.pop_front().unwrap()) }
+        LocalVariableDeclare(name, ast.pop_front().unwrap().into())
+    }
+    | FunctionCall => {
+        ast.pop_front().unwrap()
     };
-    ParamList -> ParamList, comma, number => {
+    Expression -> FunctionCall => {
+        ast.pop_front().unwrap()
+    }
+    | NUMBER => {
+        Literal(pop_front_unwrap!(token, into_number))
+    }
+    | ID => {
+        LocalVariable(pop_front_unwrap!(token, into_id))
+    };
+    FunctionCall -> ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
+        let name = pop_front_unwrap!(token, into_id);
+        FunctionCall (name, Box::new(ast.pop_front().unwrap()))
+    };
+    ParamList -> ParamList, COMMA, Expression => {
         let mut param_list = pop_front_unwrap!(ast, into_param_list);
         token.pop_front();
-        let number = pop_front_unwrap!(token, into_number);
-        param_list.push(number);
+        param_list.push(ast.pop_front().unwrap());
         AST::ParamList(param_list)
     }
-    | number => {
-        let number = pop_front_unwrap!(token, into_number);
-        AST::ParamList(vec![number])
+    | Expression => {
+        AST::ParamList(vec![ast.pop_front().unwrap()])
     }
 );
 use strum::VariantNames;
@@ -65,6 +84,7 @@ pub struct FunctionStack {
     pub constants: Vec<Value>,
     pub instructions: Vec<Instruction>,
     constant_map: HashMap<Value, u32>,
+    variable_map: HashMap<String, u32>,
 }
 
 impl FunctionStack {
@@ -73,6 +93,18 @@ impl FunctionStack {
             self.variable_count += count;
         }
         self.free_variable_index
+    }
+    fn get_variable_index(&self, variable: &str) -> Option<u32> {
+        self.variable_map.get(variable).map(|x| *x)
+    }
+    fn add_variable(&mut self, name: String) -> u32 {
+        if self.free_variable_index + 1 > self.variable_count {
+            self.variable_count += 1;
+        }
+        let index = self.free_variable_index;
+        self.free_variable_index += 1;
+        self.variable_map.insert(name, index);
+        index
     }
     fn get_constant_index(&mut self, value: Value) -> u32 {
         if let Some(index) = self.constant_map.get(&value) {
@@ -87,10 +119,28 @@ impl FunctionStack {
     fn get_constant_rk_index(&mut self, value: Value) -> i32 {
         -1 - self.get_constant_index(value) as i32
     }
+    fn set_expression_to_register(&mut self, register: u32, expression: AST) {
+        match expression {
+            Literal(number) => {
+                let k = self.get_constant_index(Value::Number(number));
+                self.instructions.push(Instruction::LoadK(register, k));
+            }
+            LocalVariable(id) => {
+                if let Some(b) = self.get_variable_index(&id) {
+                    self.instructions.push(Instruction::Move(register, b));
+                } else {
+                    panic!("Cant find symbol {}", id);
+                }
+            }
+            _ => {
+                panic!();
+            }
+        }
+    }
     fn add(&mut self, ast: AST) {
         use AST::*;
         match ast {
-            Function { name, param_list } => {
+            FunctionCall(name, param_list) => {
                 let name = Value::String(String::from(name));
                 let param_list = param_list.into_param_list().unwrap();
                 let param_len = param_list.len();
@@ -98,21 +148,21 @@ impl FunctionStack {
                 let k0 = self.get_constant_rk_index(name) as i32;
                 self.instructions.push(Instruction::GetTabUp(r, 0, k0));
                 for (i, param) in param_list.into_iter().enumerate() {
-                    let k1 = self.get_constant_index(Value::Number(param));
-                    self
-                        .instructions
-                        .push(Instruction::LoadK(r + 1 + i as u32, k1));
+                    self.set_expression_to_register(r + 1 + i as u32, param);
                 }
-                self
-                    .instructions
+                self.instructions
                     .push(Instruction::Call(r, param_len as u32 + 1, 1));
             }
-            Statements(functions) => {
-                for function in functions {
-                    self.add(function);
+            Statements(statements) => {
+                for statement in statements {
+                    self.add(statement);
                 }
             }
-            _ => panic!()
+            LocalVariableDeclare(variable_name, expression) => {
+                let a = self.add_variable(variable_name);
+                self.set_expression_to_register(a, *expression);
+            }
+            _ => panic!(),
         }
     }
 }

@@ -10,6 +10,7 @@ pub enum Instruction {
     GetTabUp(u32, u32, i32),
     LoadK(u32, u32),
     Call(u32, u32, u32),
+    Move(u32, u32),
     Return(u32, u32),
 }
 
@@ -84,6 +85,9 @@ impl VM {
             }
             Instruction::Return(a, b) => {
                 return false;
+            }
+            Instruction::Move(a, b) => {
+                *self.r_register_mut(a) = self.r_register(b).clone();
             }
         }
         self.current_instruction += 1;
