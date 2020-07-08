@@ -8,6 +8,16 @@ use strum_macros::{IntoStaticStr, EnumVariantNames};
 pub enum Token {
     #[regex(r"[a-zA-Z][a-zA-Z0-9_]*", same)]
     ID(String),
+    #[token("true")]
+    TRUE,
+    #[token("false")]
+    FALSE,
+    #[token("if")]
+    IF,
+    #[token("then")]
+    THEN,
+    #[token("end")]
+    END,
     #[token(",")]
     COMMA,
     #[token("(")]
@@ -19,9 +29,13 @@ pub enum Token {
     #[token("local")]
     LOCAL,
     #[token("=")]
-    EQUAL,
+    ASSIGN,
     #[token("+")]
     ADD,
+    #[token("==")]
+    EQUAL,
+    #[token("~=")]
+    INEQUAL,
     #[error]
     #[regex(r"[ \t\n\f]+", logos::skip)]
     ERROR

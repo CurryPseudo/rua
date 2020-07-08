@@ -12,6 +12,9 @@ pub enum Instruction {
     Call(u32, u32, u32),
     Move(u32, u32),
     ADD(u32, i32, i32),
+    Eq(u32, i32, i32),
+    JMP(u32, i32),
+    LoadBool(u32, u32, u32),
     Return(u32, u32),
 }
 
@@ -20,7 +23,7 @@ pub struct VM {
     pub stack: Vec<CallInfo>,
     pub constants: Vec<Value>,
     pub instructions: Vec<Instruction>,
-    pub current_instruction: usize,
+    pub pc: usize,
     pub up_value: Vec<Table>,
 }
 
@@ -34,7 +37,7 @@ pub struct CallInfo {
 impl CallInfo {
     pub fn new(register_count: usize, constant_offset: usize, call_instruction: usize) -> Self {
         Self {
-            registers: vec![Value::None; register_count],
+            registers: vec![Value::Nil; register_count],
             constant_offset,
             call_instruction,
         }
@@ -47,7 +50,7 @@ impl VM {
             stack: Vec::new(),
             constants: Vec::new(),
             instructions: Vec::new(),
-            current_instruction: 0,
+            pc: 0,
             up_value: Vec::new(),
         }
     }
@@ -64,10 +67,10 @@ impl VM {
         self.up_value.push(table);
     }
     pub fn run(&mut self) -> bool {
-        if self.current_instruction >= self.instructions.len() {
+        if self.pc >= self.instructions.len() {
             return false;
         }
-        match self.instructions[self.current_instruction] {
+        match self.instructions[self.pc] {
             Instruction::GetTabUp(a, b, c) => {
                 *self.r_register_mut(a) = self.get_up_value(b).get(self.rk_register(c)).clone();
             }
@@ -95,8 +98,22 @@ impl VM {
             Instruction::ADD(a, b, c) => {
                 *self.r_register_mut(a) = self.rk_register(b) + self.rk_register(c);
             }
+            Instruction::Eq(a, b, c) => {
+                if (self.rk_register(b) == self.rk_register(c)) ^ (a == 1) {
+                    self.pc += 1;
+                }
+            }
+            Instruction::JMP(a, s_bx) => {
+                self.pc = (self.pc as i32 + s_bx) as usize;
+            }
+            Instruction::LoadBool(a, b, c) => {
+                *self.r_register_mut(a) = Value::Boolean(b == 1);
+                if c == 1 {
+                    self.pc += 1;
+                }
+            }
         }
-        self.current_instruction += 1;
+        self.pc += 1;
         true
     }
     fn r_registers(&self, index: u32, len: u32) -> &[Value] {

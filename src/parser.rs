@@ -12,7 +12,7 @@ macro_rules! pop_front_unwrap {
 }
 #[derive(Debug, EnumAsInner)]
 enum AST {
-    Literal(i32),
+    Literal(Value),
     LocalVariable(String),
     LocalVariableDeclare(String, Box<AST>),
     FunctionCall(String, Box<AST>),
@@ -34,7 +34,7 @@ parser!(
     | Statement => {
         Statements(vec![ast.pop_front().unwrap()])
     };
-    Statement -> LOCAL, ID, EQUAL, Expression => {
+    Statement -> LOCAL, ID, ASSIGN, Expression => {
         token.pop_front();
         let name = pop_front_unwrap!(token, into_id);
         LocalVariableDeclare(name, ast.pop_front().unwrap().into())
@@ -42,7 +42,7 @@ parser!(
     | FunctionCall => {
         ast.pop_front().unwrap()
     };
-    Expression -> Expression, ADD, Expression0 => {
+    Expression -> Expression, EQUAL, Expression0 => {
         let left = ast.pop_front().unwrap();
         let right = ast.pop_front().unwrap();
         let op = token.pop_front().unwrap();
@@ -51,11 +51,26 @@ parser!(
     | Expression0 => {
         ast.pop_front().unwrap()
     };
-    Expression0 -> FunctionCall => {
+    Expression0 -> Expression0, ADD, Expression1 => {
+        let left = ast.pop_front().unwrap();
+        let right = ast.pop_front().unwrap();
+        let op = token.pop_front().unwrap();
+        BinaryOp(op, left.into(), right.into())
+    }
+    | Expression1 => {
+        ast.pop_front().unwrap()
+    };
+    Expression1 -> FunctionCall => {
         ast.pop_front().unwrap()
     }
+    | TRUE => {
+        Literal(Value::Boolean(true))
+    }
+    | FALSE => {
+        Literal(Value::Boolean(false))
+    }
     | NUMBER => {
-        Literal(pop_front_unwrap!(token, into_number))
+        Literal(Value::Number(pop_front_unwrap!(token, into_number)))
     }
     | ID => {
         LocalVariable(pop_front_unwrap!(token, into_id))
@@ -128,7 +143,7 @@ impl FunctionStack {
     }
     fn get_expression_rk_index(&mut self, free_register: Option<u32>, expression: AST) -> i32 {
         match expression {
-            Literal(number) => self.get_constant_rk_index(Value::Number(number)),
+            Literal(value) => self.get_constant_rk_index(value),
             LocalVariable(id) => {
                 if let Some(b) = self.get_variable_index(&id) {
                     b as i32
@@ -145,8 +160,8 @@ impl FunctionStack {
     }
     fn set_expression_to_register(&mut self, register: u32, expression: AST) {
         match expression {
-            Literal(number) => {
-                let k = self.get_constant_index(Value::Number(number));
+            Literal(value) => {
+                let k = self.get_constant_index(value);
                 self.instructions.push(Instruction::LoadK(register, k));
             }
             LocalVariable(id) => {
@@ -161,6 +176,14 @@ impl FunctionStack {
                     let b = self.get_expression_rk_index(Some(register), *left);
                     let c = self.get_expression_rk_index(None, *right);
                     self.instructions.push(Instruction::ADD(register, b, c));
+                }
+                Token::EQUAL => {
+                    let b = self.get_expression_rk_index(Some(register), *left);
+                    let c = self.get_expression_rk_index(None, *right);
+                    self.instructions.push(Instruction::Eq(1, b, c));
+                    self.instructions.push(Instruction::JMP(0, 1));
+                    self.instructions.push(Instruction::LoadBool(register, 0, 1));
+                    self.instructions.push(Instruction::LoadBool(register, 1, 0));
                 }
                 _ => unreachable!(),
             },

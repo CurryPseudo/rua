@@ -2,8 +2,9 @@
 pub enum Value {
     Number(i32),
     String(String),
+    Boolean(bool),
     LuaFunction(usize),
-    None,
+    Nil,
 }
 
 impl ToString for Value {
@@ -11,7 +12,14 @@ impl ToString for Value {
         match self {
             Self::Number(x) => x.to_string(),
             Self::String(s) => s.clone(),
-            _ => unimplemented!()
+            Self::Boolean(b) => {
+                if *b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
+            _ => unimplemented!(),
         }
     }
 }
@@ -20,23 +28,13 @@ impl std::ops::Add<&Value> for &Value {
     type Output = Value;
     fn add(self, rhs: &Value) -> Value {
         match self {
-            Value::Number(x) => {
-                match rhs {
-                    Value::Number(y) => {
-                        return Value::Number(x + y);
-                    }
-                    _ => ()
+            Value::Number(x) => match rhs {
+                Value::Number(y) => {
+                    return Value::Number(x + y);
                 }
-            }
-            Value::String(x) => {
-                match rhs {
-                    Value::String(y) => {
-                        return Value::String(format!("{}{}", x, y));
-                    }
-                    _ => ()
-                }
-            }
-            _ => ()
+                _ => (),
+            },
+            _ => (),
         }
         panic!("try to add a {:?} with {:?}", self, rhs);
     }

@@ -1,5 +1,3 @@
-local a = 3
-local b = a + 6
-local c = 5 + b + a
-print(a, b, c)
-print(b)
+local a = 1
+local c = 4 + a == 5 == false
+print(c)
