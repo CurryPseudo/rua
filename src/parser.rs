@@ -1,10 +1,11 @@
 use crate::*;
 use enum_as_inner::EnumAsInner;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 #[macro_use]
 mod lalr1;
 use crate::lexer::*;
-use lalr1::*;
+use lalr1::{Grammar, ToTerminalName};
 macro_rules! pop_front_unwrap {
     ($vec_deque:ident, $into_inner:tt) => {
         $vec_deque.pop_front().unwrap().$into_inner().unwrap()
@@ -16,51 +17,48 @@ enum AST {
     LocalVariable(String),
     LocalVariableDeclare(String, Box<AST>),
     FunctionCall(String, Box<AST>),
-    ParamList(Vec<AST>),
-    Statements(Vec<AST>),
+    ParamList(Box<AST>, Box<AST>),
+    Statements(Box<AST>, Box<AST>),
     BinaryOp(Token, Box<AST>, Box<AST>),
 }
 use AST::*;
+fn binary_op_ast(mut token: VecDeque<Token>, mut ast: VecDeque<AST>) -> AST {
+    let left = ast.pop_front().unwrap();
+    let right = ast.pop_front().unwrap();
+    let op = token.pop_front().unwrap();
+    BinaryOp(op, left.into(), right.into())
+}
 parser!(
     ParseFunctionName = lua_parse;
     Token = token: Token;
     AST = ast: AST;
-    Statements -> Statements, Statement => {
-        let mut functions = pop_front_unwrap!(ast, into_statements);
-        let function = ast.pop_front().unwrap();
-        functions.push(function);
-        Statements(functions)
+    {Statements -> Statements, Statement => {
+        Statements(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into())
     }
     | Statement => {
-        Statements(vec![ast.pop_front().unwrap()])
-    };
-    Statement -> LOCAL, ID, ASSIGN, Expression => {
+        ast.pop_front().unwrap()
+    }};
+    {Statement -> LOCAL, ID, ASSIGN, Expression => {
         token.pop_front();
         let name = pop_front_unwrap!(token, into_id);
         LocalVariableDeclare(name, ast.pop_front().unwrap().into())
     }
     | FunctionCall => {
         ast.pop_front().unwrap()
-    };
-    Expression -> Expression, EQUAL, Expression0 => {
-        let left = ast.pop_front().unwrap();
-        let right = ast.pop_front().unwrap();
-        let op = token.pop_front().unwrap();
-        BinaryOp(op, left.into(), right.into())
+    }};
+    {Expression -> Expression, EQUAL, Expression0 => {
+        binary_op_ast(token, ast)
     }
     | Expression0 => {
         ast.pop_front().unwrap()
-    };
-    Expression0 -> Expression0, ADD, Expression1 => {
-        let left = ast.pop_front().unwrap();
-        let right = ast.pop_front().unwrap();
-        let op = token.pop_front().unwrap();
-        BinaryOp(op, left.into(), right.into())
+    }};
+    {Expression0 -> Expression0, ADD, Expression1 => {
+        binary_op_ast(token, ast)
     }
     | Expression1 => {
         ast.pop_front().unwrap()
-    };
-    Expression1 -> FunctionCall => {
+    }};
+    {Expression1 -> FunctionCall => {
         ast.pop_front().unwrap()
     }
     | TRUE => {
@@ -74,20 +72,17 @@ parser!(
     }
     | ID => {
         LocalVariable(pop_front_unwrap!(token, into_id))
-    };
-    FunctionCall -> ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
+    }};
+    {FunctionCall -> ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
         let name = pop_front_unwrap!(token, into_id);
         FunctionCall (name, Box::new(ast.pop_front().unwrap()))
-    };
-    ParamList -> ParamList, COMMA, Expression => {
-        let mut param_list = pop_front_unwrap!(ast, into_param_list);
-        token.pop_front();
-        param_list.push(ast.pop_front().unwrap());
-        AST::ParamList(param_list)
+    }};
+    {ParamList -> ParamList, COMMA, Expression => {
+        AST::ParamList(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into())
     }
     | Expression => {
-        AST::ParamList(vec![ast.pop_front().unwrap()])
-    }
+        ast.pop_front().unwrap()
+    }}
 );
 use strum::VariantNames;
 impl ToTerminalName for Token {
@@ -110,7 +105,7 @@ pub struct FunctionStack {
 }
 
 impl FunctionStack {
-    fn get_free_variable_index_temp(&mut self, count: u32) -> u32 {
+    fn allocate_temp_variable(&mut self, count: u32) -> u32 {
         if self.free_variable_index + count > self.variable_count {
             self.variable_count += count;
         }
@@ -152,7 +147,7 @@ impl FunctionStack {
                 }
             }
             other => {
-                let r = free_register.unwrap_or_else(|| self.get_free_variable_index_temp(1));
+                let r = free_register.unwrap_or_else(|| self.allocate_temp_variable(1));
                 self.set_expression_to_register(r, other);
                 r as i32
             }
@@ -182,8 +177,10 @@ impl FunctionStack {
                     let c = self.get_expression_rk_index(None, *right);
                     self.instructions.push(Instruction::Eq(1, b, c));
                     self.instructions.push(Instruction::JMP(0, 1));
-                    self.instructions.push(Instruction::LoadBool(register, 0, 1));
-                    self.instructions.push(Instruction::LoadBool(register, 1, 0));
+                    self.instructions
+                        .push(Instruction::LoadBool(register, 0, 1));
+                    self.instructions
+                        .push(Instruction::LoadBool(register, 1, 0));
                 }
                 _ => unreachable!(),
             },
@@ -192,26 +189,37 @@ impl FunctionStack {
             }
         }
     }
+    fn add_param(&mut self, register: u32, ast: AST) -> u32 {
+        match ast {
+            ParamList(left, right) => {
+                let len = self.add_param(register, *left);
+                return self.add_param(register + len, *right) + len;
+            }
+            other => {
+                self.set_expression_to_register(register, other);
+                return 1;
+            }
+        }
+    }
     fn add(&mut self, ast: AST) {
         use AST::*;
         match ast {
             FunctionCall(name, param_list) => {
                 let name = Value::String(String::from(name));
-                let param_list = param_list.into_param_list().unwrap();
-                let param_len = param_list.len();
-                let r = self.get_free_variable_index_temp(param_len as u32 + 1);
                 let k0 = self.get_constant_rk_index(name) as i32;
-                self.instructions.push(Instruction::GetTabUp(r, 0, k0));
-                for (i, param) in param_list.into_iter().enumerate() {
-                    self.set_expression_to_register(r + 1 + i as u32, param);
-                }
                 self.instructions
-                    .push(Instruction::Call(r, param_len as u32 + 1, 1));
+                    .push(Instruction::GetTabUp(self.free_variable_index, 0, k0));
+                let len = self.add_param(self.free_variable_index + 1, *param_list);
+                self.allocate_temp_variable(len + 1);
+                self.instructions.push(Instruction::Call(
+                    self.free_variable_index,
+                    len + 1,
+                    1,
+                ));
             }
-            Statements(statements) => {
-                for statement in statements {
-                    self.add(statement);
-                }
+            Statements(left, right) => {
+                self.add(*left);
+                self.add(*right);
             }
             LocalVariableDeclare(variable_name, expression) => {
                 let a = self.add_variable(variable_name);

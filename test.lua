@@ -1,3 +1,3 @@
 local a = 1
-local c = 4 + a == 5 == false
+local c = 5 == 4 + a == false
 print(c)

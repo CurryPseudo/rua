@@ -117,21 +117,66 @@ impl Item {
 
 impl<T: ToTerminalName, A> Grammar<T, A> {
     pub fn new(
-        terminal_map: HashMap<&'static str, usize>,
-        terminals: Vec<&'static str>,
-        non_terminals: Vec<&'static str>,
-        split_productions: Vec<(usize, Vec<Vec<Symbol>>)>,
-        ast_builders: Vec<ASTBuilder<T, A>>,
+        unmerged_str_productions: Vec<Vec<(&'static str, Vec<&'static str>, ASTBuilder<T, A>)>>,
     ) -> Self {
         let mut productions = Vec::new();
-        let mut non_terminal_to_production = Vec::new();
-        for (left, rights) in split_productions {
-            let mut non_terminal_map = Vec::new();
-            for right in rights {
-                non_terminal_map.push(productions.len());
-                productions.push(Production { left, right });
+        let mut terminal_map = HashMap::new();
+        let mut non_terminal_map = HashMap::new();
+        let mut non_terminals = Vec::new();
+        let mut ast_builders = Vec::new();
+        non_terminals.push("S'");
+        for unmerged in &unmerged_str_productions {
+            for (left_str, _, _) in unmerged {
+                let len = non_terminal_map.len();
+                if *non_terminal_map
+                    .entry(*left_str)
+                    .or_insert_with(|| len + 1)
+                    >= non_terminals.len()
+                {
+                    non_terminals.push(*left_str);
+                }
             }
-            non_terminal_to_production.push(non_terminal_map);
+        }
+        let mut non_terminal_to_production = vec![Vec::new(); non_terminal_map.len() + 1];
+        let mut push_production = |production: Production| {
+            let production_index = productions.len();
+            non_terminal_to_production[production.left].push(production_index);
+            productions.push(production);
+        };
+        push_production(Production {
+            left: 0,
+            right: vec![NonTerminal(1)],
+        });
+        let mut terminals = Vec::new();
+        for terminal in T::all_terminal_names() {
+            let len = terminal_map.len();
+            if *terminal_map
+                .entry(*terminal)
+                .or_insert_with(|| len)
+                >= terminals.len()
+            {
+                terminals.push(*terminal);
+            };
+        }
+        for unmerged in unmerged_str_productions {
+            for (left_str, right_strs, ast_builder) in unmerged {
+                let left = non_terminal_map[left_str];
+                let right = right_strs
+                    .into_iter()
+                    .map(|s| {
+                        if let Some(non_terminal) = non_terminal_map.get(s) {
+                            Symbol::NonTerminal(*non_terminal)
+                        } else if let Some(terminal) = terminal_map.get(s) {
+                            Symbol::Terminal(*terminal)
+                        }
+                        else {
+                            panic!("Cant find symbol {}", s);
+                        }
+                    })
+                    .collect();
+                push_production(Production { left, right });
+                ast_builders.push(ast_builder);
+            }
         }
         let mut g = Vec::new();
         let mut g_map = HashMap::new();
@@ -546,61 +591,35 @@ struct Production {
     left: usize,
     right: Vec<Symbol>,
 }
+macro_rules! production {
+    ($tokens_name:ident, $ast_name:ident, {$left:tt -> $($($right:tt),+ => $ast_builder:block)|+}) => {
+        {
+            let left = stringify!($left);
+            vec![$((left, vec![$(stringify!($right)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder)))),+]
+        }
+    };
+    //($left:tt -> {$rep:tt}$($seperate:tt)?+ => $ast_builder:block) => {
+    //    $left -> $left, $($seperate,)? $rep => {
+    //        let left = ast.pop_front().unwrap().into();
+    //        let right = ast.pop_front().unwrap().into();
+    //        $ast_builder
+    //    }
+    //    | $rep => { ast.pop_front().unwrap() }
+    //}
+}
 #[allow(unused_macros)]
 macro_rules! parser {
     (
      ParseFunctionName = $parser_name:ident;
      Token = $tokens_name:ident:$tokens_type:ty;
      AST = $ast_name:ident:$ast_type:ty;
-     $($left:tt -> $($($right:tt),+ => $ast_builder:block)|+);+
+     $($production:tt);+
      ) => {
         lazy_static! {
             static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
-                use std::collections::HashMap;
-                let mut terminal_map = HashMap::new();
-                for terminal in <$tokens_type>::all_terminal_names() {
-                    let len = terminal_map.len() as usize;
-                    terminal_map.insert(*terminal, len);
-                }
-                let mut non_terminal_map = HashMap::new();
-                $({
-                    let len = non_terminal_map.len() as usize;
-                    non_terminal_map.insert(stringify!($left), len + 1);
-                  }
-                )+
-                let name_to_symbol = |s| {
-                    if let Some(non_terminal) = non_terminal_map.get(s) {
-                        Some(Symbol::NonTerminal(*non_terminal))
-                    } else if let Some(terminal) = terminal_map.get(s) {
-                        Some(Symbol::Terminal(*terminal))
-                    }
-                    else {
-                        None
-                    }
-                };
-                let productions = vec![
-                    (
-                        0,
-                        vec![vec![Symbol::NonTerminal(1)]]
-                    ),
-                    $(
-                        (
-                            *non_terminal_map.get(stringify!($left)).unwrap(),
-                            vec![$(vec![$(
-                                name_to_symbol(stringify!($right)).unwrap()
-                            ),+]),+]
-                        )
-                    ),+
-                ];
                 #[allow(unused_mut)]
                 #[allow(unused_variables)]
-                Grammar::new(
-                        terminal_map,
-                        <$tokens_type>::all_terminal_names().iter().copied().collect(),
-                        vec!["S'", $(stringify!($left)),+],
-                        productions,
-                        vec![$($(Box::new(|mut $tokens_name, mut $ast_name| $ast_builder)),+),+]
-                )
+                Grammar::new(vec![$(production!($tokens_name, $ast_name, $production)),+])
             };
         }
         fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
