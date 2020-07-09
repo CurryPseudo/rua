@@ -592,7 +592,7 @@ struct Production {
     right: Vec<Symbol>,
 }
 macro_rules! production {
-    ($tokens_name:ident, $ast_name:ident, {$left:tt -> $($($right:tt),+ => $ast_builder:block)|+}) => {
+    ($tokens_name:ident, $ast_name:ident, {$left:tt -> $($($right:tt),+ => $ast_builder:expr;)|+}) => {
         {
             let left = stringify!($left);
             vec![$((left, vec![$(stringify!($right)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder)))),+]
@@ -613,7 +613,7 @@ macro_rules! parser {
      ParseFunctionName = $parser_name:ident;
      Token = $tokens_name:ident:$tokens_type:ty;
      AST = $ast_name:ident:$ast_type:ty;
-     $($production:tt);+
+     $($production:tt)+
      ) => {
         lazy_static! {
             static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {

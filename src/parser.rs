@@ -32,57 +32,45 @@ parser!(
     ParseFunctionName = lua_parse;
     Token = token: Token;
     AST = ast: AST;
-    {Statements -> Statements, Statement => {
-        Statements(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into())
+    {
+        Statements -> Statements, Statement => 
+            Statements(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into());
+        | Statement => ast.pop_front().unwrap();
     }
-    | Statement => {
-        ast.pop_front().unwrap()
-    }};
-    {Statement -> LOCAL, ID, ASSIGN, Expression => {
-        token.pop_front();
-        let name = pop_front_unwrap!(token, into_id);
-        LocalVariableDeclare(name, ast.pop_front().unwrap().into())
+    {
+        Statement -> LOCAL, ID, ASSIGN, Expression => {
+            token.pop_front();
+            let name = pop_front_unwrap!(token, into_id);
+            LocalVariableDeclare(name, ast.pop_front().unwrap().into())
+        };
+        | FunctionCall => ast.pop_front().unwrap();
     }
-    | FunctionCall => {
-        ast.pop_front().unwrap()
-    }};
-    {Expression -> Expression, EQUAL, Expression0 => {
-        binary_op_ast(token, ast)
+    {
+        Expression -> Expression, EQUAL, Expression0 => binary_op_ast(token, ast);
+        | Expression0 => ast.pop_front().unwrap();
     }
-    | Expression0 => {
-        ast.pop_front().unwrap()
-    }};
-    {Expression0 -> Expression0, ADD, Expression1 => {
-        binary_op_ast(token, ast)
+    {
+        Expression0 -> Expression0, ADD, Expression1 => binary_op_ast(token, ast);
+        | Expression1 => ast.pop_front().unwrap();
     }
-    | Expression1 => {
-        ast.pop_front().unwrap()
-    }};
-    {Expression1 -> FunctionCall => {
-        ast.pop_front().unwrap()
+    {
+        Expression1 -> FunctionCall => ast.pop_front().unwrap();
+        | TRUE => Literal(Value::Boolean(true));
+        | FALSE => Literal(Value::Boolean(false));
+        | NUMBER => Literal(Value::Number(pop_front_unwrap!(token, into_number)));
+        | ID => LocalVariable(pop_front_unwrap!(token, into_id));
     }
-    | TRUE => {
-        Literal(Value::Boolean(true))
+    {
+        FunctionCall -> ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
+            let name = pop_front_unwrap!(token, into_id);
+            FunctionCall (name, Box::new(ast.pop_front().unwrap()))
+        };
     }
-    | FALSE => {
-        Literal(Value::Boolean(false))
+    {
+        ParamList -> ParamList, COMMA, Expression => 
+            AST::ParamList(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into());
+        | Expression => ast.pop_front().unwrap();
     }
-    | NUMBER => {
-        Literal(Value::Number(pop_front_unwrap!(token, into_number)))
-    }
-    | ID => {
-        LocalVariable(pop_front_unwrap!(token, into_id))
-    }};
-    {FunctionCall -> ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
-        let name = pop_front_unwrap!(token, into_id);
-        FunctionCall (name, Box::new(ast.pop_front().unwrap()))
-    }};
-    {ParamList -> ParamList, COMMA, Expression => {
-        AST::ParamList(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into())
-    }
-    | Expression => {
-        ast.pop_front().unwrap()
-    }}
 );
 use strum::VariantNames;
 impl ToTerminalName for Token {
@@ -211,11 +199,8 @@ impl FunctionStack {
                     .push(Instruction::GetTabUp(self.free_variable_index, 0, k0));
                 let len = self.add_param(self.free_variable_index + 1, *param_list);
                 self.allocate_temp_variable(len + 1);
-                self.instructions.push(Instruction::Call(
-                    self.free_variable_index,
-                    len + 1,
-                    1,
-                ));
+                self.instructions
+                    .push(Instruction::Call(self.free_variable_index, len + 1, 1));
             }
             Statements(left, right) => {
                 self.add(*left);
