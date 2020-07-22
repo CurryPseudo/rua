@@ -28,7 +28,7 @@ enum Action {
 }
 use Action::*;
 
-type ASTBuilder<T, A> = Box<dyn Sync + Fn(VecDeque<T>, VecDeque<A>) -> A>;
+type ASTBuilder<T, A> = Box<dyn Sync + Fn(SymbolVec<T>, SymbolVec<A>) -> A>;
 pub struct Grammar<T, A> {
     terminal_map: HashMap<&'static str, usize>,
     action: Vec<Vec<Action>>,
@@ -128,9 +128,7 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
         for unmerged in &unmerged_str_productions {
             for (left_str, _, _) in unmerged {
                 let len = non_terminal_map.len();
-                if *non_terminal_map
-                    .entry(*left_str)
-                    .or_insert_with(|| len + 1)
+                if *non_terminal_map.entry(*left_str).or_insert_with(|| len + 1)
                     >= non_terminals.len()
                 {
                     non_terminals.push(*left_str);
@@ -150,11 +148,7 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
         let mut terminals = Vec::new();
         for terminal in T::all_terminal_names() {
             let len = terminal_map.len();
-            if *terminal_map
-                .entry(*terminal)
-                .or_insert_with(|| len)
-                >= terminals.len()
-            {
+            if *terminal_map.entry(*terminal).or_insert_with(|| len) >= terminals.len() {
                 terminals.push(*terminal);
             };
         }
@@ -168,8 +162,7 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                             Symbol::NonTerminal(*non_terminal)
                         } else if let Some(terminal) = terminal_map.get(s) {
                             Symbol::Terminal(*terminal)
-                        }
-                        else {
+                        } else {
                             panic!("Cant find symbol {}", s);
                         }
                     })
@@ -592,34 +585,28 @@ struct Production {
     right: Vec<Symbol>,
 }
 macro_rules! production {
-    ($tokens_name:ident, $ast_name:ident, {$left:tt -> $($($right:tt),+ => $ast_builder:expr;)|+}) => {
-        {
-            let left = stringify!($left);
-            vec![$((left, vec![$(stringify!($right)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder)))),+]
-        }
+    ($tokens_name:ident, $ast_name:ident, $left:tt, ($single:tt, {$($rep:tt),+} => $ast_builder:expr)) => {
+        vec![
+            (stringify!($left), vec![stringify!($left), $(stringify!($rep)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder))),
+            (stringify!($left), vec![stringify!($single)], Box::new((|mut $tokens_name, mut $ast_name| $ast_name.get(0))))]
     };
-    //($left:tt -> {$rep:tt}$($seperate:tt)?+ => $ast_builder:block) => {
-    //    $left -> $left, $($seperate,)? $rep => {
-    //        let left = ast.pop_front().unwrap().into();
-    //        let right = ast.pop_front().unwrap().into();
-    //        $ast_builder
-    //    }
-    //    | $rep => { ast.pop_front().unwrap() }
-    //}
+    ($tokens_name:ident, $ast_name:ident, $left:tt, ($right:tt)) => {
+        vec![(stringify!($left), vec![stringify!($right)], Box::new((|mut $tokens_name, mut $ast_name| $ast_name.get(0))))]
+    };
+    ($tokens_name:ident, $ast_name:ident, $left:tt, ($($right:tt),+ => $ast_builder:expr)) => {
+        vec![(stringify!($left), vec![$(stringify!($right)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder)))]
+    };
 }
 #[allow(unused_macros)]
 macro_rules! parser {
-    (
-     ParseFunctionName = $parser_name:ident;
-     Token = $tokens_name:ident:$tokens_type:ty;
-     AST = $ast_name:ident:$ast_type:ty;
-     $($production:tt)+
-     ) => {
+    {
+     $parser_name:ident = |$tokens_name:ident:$tokens_type:ty, $ast_name:ident:$ast_type:ty| $($left:tt -> $($right:tt)|+);+
+    } => {
         lazy_static! {
             static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
                 #[allow(unused_mut)]
                 #[allow(unused_variables)]
-                Grammar::new(vec![$(production!($tokens_name, $ast_name, $production)),+])
+                Grammar::new(vec![$($(production!($tokens_name, $ast_name, $left, $right)),+),+])
             };
         }
         fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
@@ -651,5 +638,19 @@ fn dfs<T: Hash + PartialEq + Eq + Clone, N: FnMut(T) -> Vec<T>>(begins: Vec<T>, 
                 to_addeds.push(next);
             }
         }
+    }
+}
+pub struct SymbolVec<T>(Vec<Option<T>>);
+
+impl<T> std::iter::FromIterator<T> for SymbolVec<T> {
+    fn from_iter<I>(iter: I) -> Self 
+    where I: IntoIterator<Item = T>{
+        Self(iter.into_iter().map(|x| Some(x)).collect())
+    }
+}
+
+impl<T> SymbolVec<T> {
+    pub fn get(&mut self, i: usize) -> T {
+        std::mem::replace(&mut self.0[i], None).unwrap()
     }
 }

@@ -1,16 +1,10 @@
 use crate::*;
 use enum_as_inner::EnumAsInner;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 #[macro_use]
 mod lalr1;
 use crate::lexer::*;
 use lalr1::{Grammar, ToTerminalName};
-macro_rules! pop_front_unwrap {
-    ($vec_deque:ident, $into_inner:tt) => {
-        $vec_deque.pop_front().unwrap().$into_inner().unwrap()
-    };
-}
 #[derive(Debug, EnumAsInner)]
 enum AST {
     Literal(Value),
@@ -22,56 +16,40 @@ enum AST {
     BinaryOp(Token, Box<AST>, Box<AST>),
 }
 use AST::*;
-fn binary_op_ast(mut token: VecDeque<Token>, mut ast: VecDeque<AST>) -> AST {
-    let left = ast.pop_front().unwrap();
-    let right = ast.pop_front().unwrap();
-    let op = token.pop_front().unwrap();
-    BinaryOp(op, left.into(), right.into())
+parser!{
+    lua_parse = |token: Token, ast: AST|
+    Statements -> 
+      (Statement, {Statement} => Statements(ast.get(0).into(), ast.get(1).into()));
+
+    Statement -> 
+      (LOCAL, ID, ASSIGN, Expression => {
+        let name = token.get(1).into_id().unwrap();
+        LocalVariableDeclare(name, ast.get(0).into())
+    })
+    | (FunctionCall);
+
+    Expression -> 
+      (Expression0, {EQUAL, Expression0} => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into()));
+
+    Expression0 -> 
+      (Expression1, {ADD, Expression1} => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into()));
+
+    Expression1 -> 
+      (FunctionCall => ast.get(0))
+    | (TRUE => Literal(Value::Boolean(true)))
+    | (FALSE => Literal(Value::Boolean(false)))
+    | (NUMBER => Literal(Value::Number(token.get(0).into_number().unwrap())))
+    | (ID => LocalVariable(token.get(0).into_id().unwrap()));
+
+    FunctionCall -> 
+      (ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
+        let name = token.get(0).into_id().unwrap();
+        FunctionCall (name, ast.get(0).into())
+    });
+
+    ParamList -> 
+      (Expression, {COMMA, Expression} => AST::ParamList(ast.get(0).into(), ast.get(1).into()))
 }
-parser!(
-    ParseFunctionName = lua_parse;
-    Token = token: Token;
-    AST = ast: AST;
-    {
-        Statements -> Statements, Statement => 
-            Statements(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into());
-        | Statement => ast.pop_front().unwrap();
-    }
-    {
-        Statement -> LOCAL, ID, ASSIGN, Expression => {
-            token.pop_front();
-            let name = pop_front_unwrap!(token, into_id);
-            LocalVariableDeclare(name, ast.pop_front().unwrap().into())
-        };
-        | FunctionCall => ast.pop_front().unwrap();
-    }
-    {
-        Expression -> Expression, EQUAL, Expression0 => binary_op_ast(token, ast);
-        | Expression0 => ast.pop_front().unwrap();
-    }
-    {
-        Expression0 -> Expression0, ADD, Expression1 => binary_op_ast(token, ast);
-        | Expression1 => ast.pop_front().unwrap();
-    }
-    {
-        Expression1 -> FunctionCall => ast.pop_front().unwrap();
-        | TRUE => Literal(Value::Boolean(true));
-        | FALSE => Literal(Value::Boolean(false));
-        | NUMBER => Literal(Value::Number(pop_front_unwrap!(token, into_number)));
-        | ID => LocalVariable(pop_front_unwrap!(token, into_id));
-    }
-    {
-        FunctionCall -> ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
-            let name = pop_front_unwrap!(token, into_id);
-            FunctionCall (name, Box::new(ast.pop_front().unwrap()))
-        };
-    }
-    {
-        ParamList -> ParamList, COMMA, Expression => 
-            AST::ParamList(ast.pop_front().unwrap().into(), ast.pop_front().unwrap().into());
-        | Expression => ast.pop_front().unwrap();
-    }
-);
 use strum::VariantNames;
 impl ToTerminalName for Token {
     fn to_terminal_name(&self) -> &'static str {
