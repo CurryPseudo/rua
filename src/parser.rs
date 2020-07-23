@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[macro_use]
 mod lalr1;
 use crate::lexer::*;
-use lalr1::{Grammar, ToTerminalName};
+use lalr1::{Grammar, ToTerminalName, SymbolVec};
 #[derive(Debug, EnumAsInner)]
 enum AST {
     Literal(Value),
@@ -17,38 +17,54 @@ enum AST {
 }
 use AST::*;
 parser!{
-    lua_parse = |token: Token, ast: AST|
-    Statements -> 
-      (Statement, {Statement} => Statements(ast.get(0).into(), ast.get(1).into()));
+    lua_parse = |token: Token, ast: AST| {
+    production!(
+        Statements -> 
+            right!(Statements, Statement => Statements(ast.get(0).into(), ast.get(1).into())),
+            right!(Statement)
+    )
 
-    Statement -> 
-      (LOCAL, ID, ASSIGN, Expression => {
-        let name = token.get(1).into_id().unwrap();
-        LocalVariableDeclare(name, ast.get(0).into())
-    })
-    | (FunctionCall);
+    production!(
+        Statement -> 
+            right!(LOCAL, ID, ASSIGN, Expression => {
+                let name = token.get(1).into_id().unwrap();
+                LocalVariableDeclare(name, ast.get(0).into())
+            }),
+            right!(FunctionCall)
+    )
 
-    Expression -> 
-      (Expression0, {EQUAL, Expression0} => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into()));
-
-    Expression0 -> 
-      (Expression1, {ADD, Expression1} => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into()));
-
-    Expression1 -> 
-      (FunctionCall => ast.get(0))
-    | (TRUE => Literal(Value::Boolean(true)))
-    | (FALSE => Literal(Value::Boolean(false)))
-    | (NUMBER => Literal(Value::Number(token.get(0).into_number().unwrap())))
-    | (ID => LocalVariable(token.get(0).into_id().unwrap()));
-
-    FunctionCall -> 
-      (ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
-        let name = token.get(0).into_id().unwrap();
-        FunctionCall (name, ast.get(0).into())
-    });
-
-    ParamList -> 
-      (Expression, {COMMA, Expression} => AST::ParamList(ast.get(0).into(), ast.get(1).into()))
+    production!(
+        Expression -> 
+            right!(Expression, EQUAL, Expression0 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(Expression0)
+    )
+    production!(
+        Expression0 -> 
+            right!(Expression0, ADD, Expression1 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(Expression1)
+    )
+    production!(
+        Expression1 -> 
+            right!(FunctionCall => ast.get(0)),
+            right!(TRUE => Literal(Value::Boolean(true))),
+            right!(FALSE => Literal(Value::Boolean(false))),
+            right!(NUMBER => Literal(Value::Number(token.get(0).into_number().unwrap()))),
+            right!(ID => LocalVariable(token.get(0).into_id().unwrap()))
+    )
+    production!(
+        FunctionCall -> 
+            right!(ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
+              let name = token.get(0).into_id().unwrap();
+              FunctionCall (name, ast.get(0).into())
+            })
+    )
+    production!(
+        ParamList ->  
+            right!(ParamList, COMMA, Expression => 
+                   AST::ParamList(ast.get(0).into(), ast.get(1).into())),
+            right!(Expression)
+    )
+    }
 }
 use strum::VariantNames;
 impl ToTerminalName for Token {

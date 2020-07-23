@@ -28,7 +28,7 @@ enum Action {
 }
 use Action::*;
 
-type ASTBuilder<T, A> = Box<dyn Sync + Fn(SymbolVec<T>, SymbolVec<A>) -> A>;
+pub type ASTBuilder<T, A> = fn(SymbolVec<T>, SymbolVec<A>) -> A;
 pub struct Grammar<T, A> {
     terminal_map: HashMap<&'static str, usize>,
     action: Vec<Vec<Action>>,
@@ -584,29 +584,38 @@ struct Production {
     left: usize,
     right: Vec<Symbol>,
 }
+macro_rules! right {
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($right:tt),+ => $ast_builder:expr)) => {
+        vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_builder)]
+    };
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($right:tt)) => {
+        vec![(vec![stringify!($right)], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_name.get(0))]
+    };
+}
 macro_rules! production {
-    ($tokens_name:ident, $ast_name:ident, $left:tt, ($single:tt, {$($rep:tt),+} => $ast_builder:expr)) => {
-        vec![
-            (stringify!($left), vec![stringify!($left), $(stringify!($rep)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder))),
-            (stringify!($left), vec![stringify!($single)], Box::new((|mut $tokens_name, mut $ast_name| $ast_name.get(0))))]
-    };
-    ($tokens_name:ident, $ast_name:ident, $left:tt, ($right:tt)) => {
-        vec![(stringify!($left), vec![stringify!($right)], Box::new((|mut $tokens_name, mut $ast_name| $ast_name.get(0))))]
-    };
-    ($tokens_name:ident, $ast_name:ident, $left:tt, ($($right:tt),+ => $ast_builder:expr)) => {
-        vec![(stringify!($left), vec![$(stringify!($right)),+], Box::new((|mut $tokens_name, mut $ast_name| $ast_builder)))]
+    {$tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($left:tt -> $($right:ident!$args:tt),+)} => {
+        {
+            let mut r = Vec::new();
+            $(
+                let one: Vec<(_, lalr1::ASTBuilder<$tokens_type, $ast_type>)> = $right!($tokens_name, $tokens_type, $ast_name, $ast_type, $args);
+                for (rights, ast_builder) in one {
+                    r.push((stringify!($left), rights, ast_builder));
+                }
+            )+
+            r
+        }
     };
 }
 #[allow(unused_macros)]
 macro_rules! parser {
     {
-     $parser_name:ident = |$tokens_name:ident:$tokens_type:ty, $ast_name:ident:$ast_type:ty| $($left:tt -> $($right:tt)|+);+
+     $parser_name:ident = |$tokens_name:ident: $tokens_type:ty, $ast_name:ident: $ast_type:ty| {$($product_macro:ident!$args:tt)+}
     } => {
         lazy_static! {
-            static ref GRAMMAR: Grammar<$tokens_type, $ast_type> = {
+            static ref GRAMMAR: lalr1::Grammar<$tokens_type, $ast_type> = {
                 #[allow(unused_mut)]
                 #[allow(unused_variables)]
-                Grammar::new(vec![$($(production!($tokens_name, $ast_name, $left, $right)),+),+])
+                lalr1::Grammar::new(vec![$($product_macro!($tokens_name, $tokens_type, $ast_name, $ast_type, $args)),+])
             };
         }
         fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
