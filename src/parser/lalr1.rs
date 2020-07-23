@@ -585,6 +585,22 @@ struct Production {
     right: Vec<Symbol>,
 }
 macro_rules! right {
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($pre:tt),* + ($($($choose:tt),+)|+) + $($after:tt),* => $ast_builder:expr)) => {
+        {
+            let pre = vec![$(stringify!($pre)),+];
+            let after = vec![$(stringify!($after)),+];
+            let chooses = vec![$(vec![$(stringify!($choose)),+]),+];
+            let mut r: Vec<(_, lalr1::ASTBuilder<$tokens_type, $ast_type>)> = Vec::new();
+            for mut choose in chooses {
+                let mut this_pre = pre.clone();
+                let mut this_after = after.clone();
+                this_pre.append(&mut choose);
+                this_pre.append(&mut this_after);
+                r.push((this_pre, |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_builder));
+            }
+            r
+        }
+    };
     ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($right:tt),+ => $ast_builder:expr)) => {
         vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_builder)]
     };
@@ -609,7 +625,7 @@ macro_rules! production {
 #[allow(unused_macros)]
 macro_rules! parser {
     {
-     $parser_name:ident = |$tokens_name:ident: $tokens_type:ty, $ast_name:ident: $ast_type:ty| {$($product_macro:ident!$args:tt)+}
+     $parser_name:ident = |$tokens_name:ident: $tokens_type:ty, $ast_name:ident: $ast_type:ty| $($product_macro:ident!$args:tt)+
     } => {
         lazy_static! {
             static ref GRAMMAR: lalr1::Grammar<$tokens_type, $ast_type> = {

@@ -1,3 +1,2 @@
-local a = 1
-local c = 5 == 4 + a == false
-print(c)
+local a = 5 ~= 4
+print(a)

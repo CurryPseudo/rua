@@ -17,7 +17,7 @@ enum AST {
 }
 use AST::*;
 parser!{
-    lua_parse = |token: Token, ast: AST| {
+    lua_parse = |token: Token, ast: AST| 
     production!(
         Statements -> 
             right!(Statements, Statement => Statements(ast.get(0).into(), ast.get(1).into())),
@@ -35,7 +35,7 @@ parser!{
 
     production!(
         Expression -> 
-            right!(Expression, EQUAL, Expression0 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(Expression + (EQUAL | INEQUAL) + Expression0 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
             right!(Expression0)
     )
     production!(
@@ -64,7 +64,6 @@ parser!{
                    AST::ParamList(ast.get(0).into(), ast.get(1).into())),
             right!(Expression)
     )
-    }
 }
 use strum::VariantNames;
 impl ToTerminalName for Token {
@@ -154,10 +153,15 @@ impl FunctionStack {
                     let c = self.get_expression_rk_index(None, *right);
                     self.instructions.push(Instruction::ADD(register, b, c));
                 }
-                Token::EQUAL => {
+                Token::EQUAL | Token::INEQUAL => {
                     let b = self.get_expression_rk_index(Some(register), *left);
                     let c = self.get_expression_rk_index(None, *right);
-                    self.instructions.push(Instruction::Eq(1, b, c));
+                    if let Token::EQUAL = op {
+                        self.instructions.push(Instruction::Eq(1, b, c));
+                    }
+                    else {
+                        self.instructions.push(Instruction::Eq(0, b, c));
+                    }
                     self.instructions.push(Instruction::JMP(0, 1));
                     self.instructions
                         .push(Instruction::LoadBool(register, 0, 1));
