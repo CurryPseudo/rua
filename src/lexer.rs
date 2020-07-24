@@ -12,8 +12,12 @@ pub enum Token {
     TRUE,
     #[token("false")]
     FALSE,
+    #[token("while")]
+    WHILE,
     #[token("if")]
     IF,
+    #[token("do")]
+    DO,
     #[token("then")]
     THEN,
     #[token("end")]
@@ -25,7 +29,9 @@ pub enum Token {
     #[token(")")]
     RIGHT_BRACKET,
     #[regex(r"[0-9]+", number)]
-    NUMBER(i32),
+    NUMBER(i64),
+    #[regex(r#""[^"]*""#, string)]
+    STRING(String),
     #[token("local")]
     LOCAL,
     #[token("=")]
@@ -36,6 +42,8 @@ pub enum Token {
     EQUAL,
     #[token("~=")]
     INEQUAL,
+    #[token("<")]
+    LESSTHAN,
     #[regex(r"--.*", logos::skip)]
     COMMENT,
     #[error]
@@ -47,12 +55,16 @@ fn same(lex: &mut Lexer<Token>) -> String {
     String::from(lex.slice())
 }
 
-fn number(lex: &mut Lexer<Token>) -> i32 {
+fn number(lex: &mut Lexer<Token>) -> i64 {
     let mut sum = 0;
     for c in lex.slice().bytes() {
-        sum = sum * 10 + (c - b'0') as i32;
+        sum = sum * 10 + (c - b'0') as i64;
     }
     sum
+}
+fn string(lex: &mut Lexer<Token>) -> String {
+    let s = lex.slice();
+    String::from(&s[1..s.len() - 1])
 }
 
 #[test]

@@ -15,7 +15,8 @@ enum AST {
     ParamList(Box<AST>, Box<AST>),
     Statements(Box<AST>, Box<AST>),
     BinaryOp(Token, Box<AST>, Box<AST>),
-    If(Box<AST>, Box<AST>)
+    If(Box<AST>, Box<AST>),
+    While(Box<AST>, Box<AST>),
 }
 use AST::*;
 parser!{
@@ -37,6 +38,9 @@ parser!{
                 Assign(name, ast.get(0).into())
             }),
             right!(FunctionCall),
+            right!(WHILE, Expression, DO, Statements, END => {
+                While(ast.get(0).into(), ast.get(1).into())
+            }),
             right!(IF, Expression, THEN, Statements, END => {
                 If(ast.get(0).into(), ast.get(1).into())
             })
@@ -44,7 +48,7 @@ parser!{
 
     production!(
         Expression -> 
-            right!(Expression + (EQUAL | INEQUAL) + Expression0 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(Expression + (EQUAL | INEQUAL | LESSTHAN) + Expression0 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
             right!(Expression0)
     )
     production!(
@@ -58,6 +62,7 @@ parser!{
             right!(TRUE => Literal(Value::Boolean(true))),
             right!(FALSE => Literal(Value::Boolean(false))),
             right!(NUMBER => Literal(Value::Number(token.get(0).into_number().unwrap()))),
+            right!(STRING => Literal(Value::String(token.get(0).into_string().unwrap()))),
             right!(ID => LocalVariable(token.get(0).into_id().unwrap()))
     )
     production!(
@@ -155,14 +160,14 @@ impl FunctionStack {
         };
         match expression {
             BinaryOp(op, left, right) => match op {
-                Token::EQUAL | Token::INEQUAL => {
+                Token::EQUAL | Token::INEQUAL | Token::LESSTHAN => {
                     let b = self.get_expression_rk_index(free_register, *left);
                     let c = self.get_expression_rk_index(None, *right);
-                    if let Token::EQUAL = op {
-                        self.instructions.push(Instruction::Eq(0, b, c));
-                    }
-                    else {
-                        self.instructions.push(Instruction::Eq(1, b, c));
+                    match op {
+                        Token::EQUAL => self.instructions.push(Instruction::Eq(0, b, c)),
+                        Token::INEQUAL => self.instructions.push(Instruction::Eq(1, b, c)),
+                        Token::LESSTHAN => self.instructions.push(Instruction::Lt(0, b, c)),
+                        _ => unreachable!()
                     }
                 }
                 _ => straight_test(BinaryOp(op, left, right))
@@ -195,7 +200,7 @@ impl FunctionStack {
                     let c = self.get_expression_rk_index(None, *right);
                     self.instructions.push(Instruction::ADD(register, b, c))
                 }
-                Token::EQUAL | Token::INEQUAL => {
+                Token::EQUAL | Token::INEQUAL | Token::LESSTHAN => {
                     self.test_expression(Some(register), BinaryOp(op, left, right), 1);
                     self.instructions.push(Instruction::LoadBool(register, 1, 1));
                     self.instructions.push(Instruction::LoadBool(register, 0, 0));
@@ -249,14 +254,21 @@ impl FunctionStack {
                 self.add(*then);
                 set_jmp_to(self);
             }
-            _ => panic!(),
+            While(expression, then) => {
+                let pos = self.instructions.len();
+                let set_jmp_to = self.test_expression(None, *expression, 1);
+                self.add(*then);
+                self.instructions.push(Instruction::JMP(0, pos as i32 - self.instructions.len() as i32 - 1));
+                set_jmp_to(self);
+            }
+            _ => unimplemented!(),
         }
     }
 }
 pub fn add_code(input: &str, vm: &mut VM) {
     let mut stack = FunctionStack::default();
     let tokens = Token::lexer(input).collect();
-    debug!("{:?}", tokens);
+    info!("{:?}", tokens);
     let ast = lua_parse(tokens);
     stack.add(ast);
     vm.add_function(stack);

@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
-    Number(i32),
+    Number(i64),
     String(String),
     Boolean(bool),
     LuaFunction(usize),
@@ -11,6 +11,15 @@ impl Value {
         match self {
             Nil => true,
             _ => false
+        }
+    }
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Self::Number(_) => "number",
+            Self::String(_) => "string",
+            Self::Boolean(_) => "boolean",
+            Self::LuaFunction(_) => "function",
+            Self::Nil => "nil",
         }
     }
 }
@@ -26,8 +35,9 @@ impl ToString for Value {
                 } else {
                     "false".to_string()
                 }
-            }
-            _ => unimplemented!(),
+            },
+            Self::Nil => "nil".to_string(),
+            Self::LuaFunction(_) => "function".to_string()
         }
     }
 }
@@ -57,6 +67,26 @@ impl std::ops::Add<&Value> for &Value {
             },
             _ => (),
         }
-        panic!("try to add a {:?} with {:?}", self, rhs);
+        panic!("try to add a {:?} with {:?}", self.type_name(), rhs.type_name());
+    }
+}
+impl PartialOrd<Self> for Value {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        match self {
+            Value::Number(x) => match rhs {
+                Value::Number(y) => {
+                    return Some(x.cmp(&y));
+                }
+                _ => (),
+            }
+            Value::String(x) => match rhs {
+                Value::String(y) => {
+                    return Some(x.cmp(&y));
+                }
+                _ => (),
+            }
+            _ => ()
+        }
+        panic!("try to compare a {:?} with {:?}", self.type_name(), rhs.type_name());
     }
 }

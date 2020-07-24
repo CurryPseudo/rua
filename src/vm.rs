@@ -13,6 +13,7 @@ pub enum Instruction {
     Move(u32, u32),
     ADD(u32, i32, i32),
     Eq(u32, i32, i32),
+    Lt(u32, i32, i32),
     JMP(u32, i32),
     LoadBool(u32, u32, u32),
     Return(u32, u32),
@@ -103,6 +104,11 @@ impl VM {
             }
             Instruction::Eq(a, b, c) => {
                 if (self.rk_register(b) == self.rk_register(c)) ^ (a == 1) {
+                    self.pc += 1;
+                }
+            }
+            Instruction::Lt(a, b, c) => {
+                if (self.rk_register(b) < self.rk_register(c)) ^ (a == 1) {
                     self.pc += 1;
                 }
             }

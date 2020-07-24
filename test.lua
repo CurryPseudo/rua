@@ -1,9 +1,10 @@
+local i = 0
 local a = 0
 local b = 1
-if a ~= b then
-	a = 1 + a
+while i < 50 do
+	local c = a + b
+	a = b
+	b = c
+	i = i + 1
 end
-if a == b then
-	a = 1 ~= a
-end
-print(b, a)
+print(i, a, b)
