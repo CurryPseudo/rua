@@ -36,6 +36,8 @@ pub enum Token {
     EQUAL,
     #[token("~=")]
     INEQUAL,
+    #[regex(r"--.*", logos::skip)]
+    COMMENT,
     #[error]
     #[regex(r"[ \t\n\f]+", logos::skip)]
     ERROR

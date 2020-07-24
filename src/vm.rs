@@ -16,6 +16,7 @@ pub enum Instruction {
     JMP(u32, i32),
     LoadBool(u32, u32, u32),
     Return(u32, u32),
+    Test(u32, u32),
 }
 
 #[derive(Debug)]
@@ -70,6 +71,8 @@ impl VM {
         if self.pc >= self.instructions.len() {
             return false;
         }
+        trace!("{:?}", self.instructions[self.pc]);
+        trace!("{:#?}", self.stack);
         match self.instructions[self.pc] {
             Instruction::GetTabUp(a, b, c) => {
                 *self.r_register_mut(a) = self.get_up_value(b).get(self.rk_register(c)).clone();
@@ -86,7 +89,7 @@ impl VM {
                             *self.r_register_mut(a + i) = result[i as usize].clone();
                         }
                     }
-                    _ => panic!(),
+                    _ => panic!("{:?} is not function", func),
                 }
             }
             Instruction::Return(a, b) => {
@@ -109,6 +112,11 @@ impl VM {
             Instruction::LoadBool(a, b, c) => {
                 *self.r_register_mut(a) = Value::Boolean(b == 1);
                 if c == 1 {
+                    self.pc += 1;
+                }
+            }
+            Instruction::Test(a, c) => {
+                if *self.r_register(a).as_ref() != (c == 1) {
                     self.pc += 1;
                 }
             }

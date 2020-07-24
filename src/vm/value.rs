@@ -6,6 +6,14 @@ pub enum Value {
     LuaFunction(usize),
     Nil,
 }
+impl Value {
+    pub fn is_nil(&self) -> bool {
+        match self {
+            Nil => true,
+            _ => false
+        }
+    }
+}
 
 impl ToString for Value {
     fn to_string(&self) -> String {
@@ -20,6 +28,19 @@ impl ToString for Value {
                 }
             }
             _ => unimplemented!(),
+        }
+    }
+}
+impl AsRef<bool> for Value {
+    fn as_ref(&self) -> &bool {
+        if self.is_nil() {
+            &false
+        }
+        else if let Value::Boolean(b) = self {
+            b
+        }
+        else {
+            &true
         }
     }
 }

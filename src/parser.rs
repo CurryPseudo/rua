@@ -4,16 +4,18 @@ use std::collections::HashMap;
 #[macro_use]
 mod lalr1;
 use crate::lexer::*;
-use lalr1::{Grammar, ToTerminalName, SymbolVec};
+use lalr1::ToTerminalName;
 #[derive(Debug, EnumAsInner)]
 enum AST {
     Literal(Value),
     LocalVariable(String),
     LocalVariableDeclare(String, Box<AST>),
+    Assign(String, Box<AST>),
     FunctionCall(String, Box<AST>),
     ParamList(Box<AST>, Box<AST>),
     Statements(Box<AST>, Box<AST>),
     BinaryOp(Token, Box<AST>, Box<AST>),
+    If(Box<AST>, Box<AST>)
 }
 use AST::*;
 parser!{
@@ -30,7 +32,14 @@ parser!{
                 let name = token.get(1).into_id().unwrap();
                 LocalVariableDeclare(name, ast.get(0).into())
             }),
-            right!(FunctionCall)
+            right!(ID, ASSIGN, Expression => {
+                let name = token.get(0).into_id().unwrap();
+                Assign(name, ast.get(0).into())
+            }),
+            right!(FunctionCall),
+            right!(IF, Expression, THEN, Statements, END => {
+                If(ast.get(0).into(), ast.get(1).into())
+            })
     )
 
     production!(
@@ -85,6 +94,7 @@ pub struct FunctionStack {
     variable_map: HashMap<String, u32>,
 }
 
+#[allow(unused_must_use)]
 impl FunctionStack {
     fn allocate_temp_variable(&mut self, count: u32) -> u32 {
         if self.free_variable_index + count > self.variable_count {
@@ -117,6 +127,9 @@ impl FunctionStack {
     fn get_constant_rk_index(&mut self, value: Value) -> i32 {
         -1 - self.get_constant_index(value) as i32
     }
+    fn get_free_register_or_allocate(&mut self, free_register: Option<u32>) -> u32 {
+        free_register.unwrap_or_else(|| self.allocate_temp_variable(1))
+    }
     fn get_expression_rk_index(&mut self, free_register: Option<u32>, expression: AST) -> i32 {
         match expression {
             Literal(value) => self.get_constant_rk_index(value),
@@ -128,11 +141,40 @@ impl FunctionStack {
                 }
             }
             other => {
-                let r = free_register.unwrap_or_else(|| self.allocate_temp_variable(1));
+                let r = self.get_free_register_or_allocate(free_register);
                 self.set_expression_to_register(r, other);
                 r as i32
             }
         }
+    }
+    fn test_expression(&mut self, free_register: Option<u32>, expression: AST, jmp_length: i32) -> Box<dyn Fn(&mut FunctionStack)> {
+        let mut straight_test = |expression| {
+            let register = self.get_free_register_or_allocate(free_register);
+            self.set_expression_to_register(register, expression);
+            self.instructions.push(Instruction::Test(register, 0));
+        };
+        match expression {
+            BinaryOp(op, left, right) => match op {
+                Token::EQUAL | Token::INEQUAL => {
+                    let b = self.get_expression_rk_index(free_register, *left);
+                    let c = self.get_expression_rk_index(None, *right);
+                    if let Token::EQUAL = op {
+                        self.instructions.push(Instruction::Eq(0, b, c));
+                    }
+                    else {
+                        self.instructions.push(Instruction::Eq(1, b, c));
+                    }
+                }
+                _ => straight_test(BinaryOp(op, left, right))
+            }
+            _ => straight_test(expression)
+        }
+        let current = self.instructions.len();
+        self.instructions.push(Instruction::JMP(0, jmp_length));
+        Box::new(move |stack| {
+            let jmp_to = stack.instructions.len();
+            stack.instructions[current] = Instruction::JMP(0, (jmp_to - (current + 1)) as i32);
+        })
     }
     fn set_expression_to_register(&mut self, register: u32, expression: AST) {
         match expression {
@@ -142,7 +184,7 @@ impl FunctionStack {
             }
             LocalVariable(id) => {
                 if let Some(b) = self.get_variable_index(&id) {
-                    self.instructions.push(Instruction::Move(register, b));
+                    self.instructions.push(Instruction::Move(register, b))
                 } else {
                     panic!("Cant find symbol {}", id);
                 }
@@ -151,22 +193,12 @@ impl FunctionStack {
                 Token::ADD => {
                     let b = self.get_expression_rk_index(Some(register), *left);
                     let c = self.get_expression_rk_index(None, *right);
-                    self.instructions.push(Instruction::ADD(register, b, c));
+                    self.instructions.push(Instruction::ADD(register, b, c))
                 }
                 Token::EQUAL | Token::INEQUAL => {
-                    let b = self.get_expression_rk_index(Some(register), *left);
-                    let c = self.get_expression_rk_index(None, *right);
-                    if let Token::EQUAL = op {
-                        self.instructions.push(Instruction::Eq(1, b, c));
-                    }
-                    else {
-                        self.instructions.push(Instruction::Eq(0, b, c));
-                    }
-                    self.instructions.push(Instruction::JMP(0, 1));
-                    self.instructions
-                        .push(Instruction::LoadBool(register, 0, 1));
-                    self.instructions
-                        .push(Instruction::LoadBool(register, 1, 0));
+                    self.test_expression(Some(register), BinaryOp(op, left, right), 1);
+                    self.instructions.push(Instruction::LoadBool(register, 1, 1));
+                    self.instructions.push(Instruction::LoadBool(register, 0, 0));
                 }
                 _ => unreachable!(),
             },
@@ -208,6 +240,15 @@ impl FunctionStack {
                 let a = self.add_variable(variable_name);
                 self.set_expression_to_register(a, *expression);
             }
+            Assign(variable_name, expression) => {
+                let a = self.get_variable_index(&variable_name).unwrap();
+                self.set_expression_to_register(a, *expression);
+            }
+            If(expression, then) => {
+                let set_jmp_to = self.test_expression(None, *expression, 1);
+                self.add(*then);
+                set_jmp_to(self);
+            }
             _ => panic!(),
         }
     }
@@ -215,6 +256,7 @@ impl FunctionStack {
 pub fn add_code(input: &str, vm: &mut VM) {
     let mut stack = FunctionStack::default();
     let tokens = Token::lexer(input).collect();
+    debug!("{:?}", tokens);
     let ast = lua_parse(tokens);
     stack.add(ast);
     vm.add_function(stack);
