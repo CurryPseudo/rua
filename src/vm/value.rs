@@ -1,6 +1,44 @@
 use crate::*;
+use std::fmt::*;
+use std::hash::*;
 
-pub type ExportLuaFunction = fn(Vec<Value>) -> Vec<Value>;
+#[derive(Clone)]
+pub struct ExportLuaFunction {
+    name: &'static str,
+    func: fn(&[Value]) -> Vec<Value>,
+}
+
+impl ExportLuaFunction {
+    pub fn new(name: &'static str, func: fn(&[Value]) -> Vec<Value>) -> Self {
+        Self { name, func }
+    }
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+    pub fn evaluate(&self, args: &[Value]) -> Vec<Value> {
+        (self.func)(args)
+    }
+}
+
+impl PartialEq for ExportLuaFunction {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for ExportLuaFunction {}
+
+impl std::fmt::Debug for ExportLuaFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl std::hash::Hash for ExportLuaFunction {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
@@ -14,7 +52,7 @@ impl Value {
     pub fn is_nil(&self) -> bool {
         match self {
             Self::Nil => true,
-            _ => false
+            _ => false,
         }
     }
     pub fn type_name(&self) -> &'static str {
@@ -39,9 +77,9 @@ impl ToString for Value {
                 } else {
                     "false".to_string()
                 }
-            },
+            }
             Self::Nil => "nil".to_string(),
-            Self::LuaFunction(_) => "function".to_string()
+            Self::LuaFunction(_) => "function".to_string(),
         }
     }
 }
@@ -49,11 +87,9 @@ impl AsRef<bool> for Value {
     fn as_ref(&self) -> &bool {
         if self.is_nil() {
             &false
-        }
-        else if let Value::Boolean(b) = self {
+        } else if let Value::Boolean(b) = self {
             b
-        }
-        else {
+        } else {
             &true
         }
     }
@@ -71,7 +107,11 @@ impl std::ops::Add<&Value> for &Value {
             },
             _ => (),
         }
-        panic!("try to add a {:?} with {:?}", self.type_name(), rhs.type_name());
+        panic!(
+            "try to add a {:?} with {:?}",
+            self.type_name(),
+            rhs.type_name()
+        );
     }
 }
 impl PartialOrd<Self> for Value {
@@ -82,15 +122,19 @@ impl PartialOrd<Self> for Value {
                     return Some(x.cmp(&y));
                 }
                 _ => (),
-            }
+            },
             Value::String(x) => match rhs {
                 Value::String(y) => {
                     return Some(x.cmp(&y));
                 }
                 _ => (),
-            }
-            _ => ()
+            },
+            _ => (),
         }
-        panic!("try to compare a {:?} with {:?}", self.type_name(), rhs.type_name());
+        panic!(
+            "try to compare a {:?} with {:?}",
+            self.type_name(),
+            rhs.type_name()
+        );
     }
 }

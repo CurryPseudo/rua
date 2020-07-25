@@ -58,10 +58,10 @@ impl VM {
     }
     pub fn import_builtin_function(&mut self) {
         let mut table = Table::new();
-        for (name, lua_function) in get_builtin_functions() {
+        for export_lua_function in get_builtin_functions() {
             table.set(
-                Value::String(String::from(*name)),
-                Value::LuaFunction(*lua_function),
+                Value::String(export_lua_function.name().to_string()),
+                Value::LuaFunction(export_lua_function.clone()),
             );
         }
         self.up_value.push(table);
@@ -83,7 +83,7 @@ impl VM {
                 let func = self.r_register(a);
                 match func {
                     Value::LuaFunction(lua_function) => {
-                        let result = lua_function(self.r_registers(a + 1, b - 1));
+                        let result = lua_function.evaluate(self.r_registers(a + 1, b - 1));
                         for i in 0..c - 1 {
                             *self.r_register_mut(a + i) = result[i as usize].clone();
                         }
@@ -128,8 +128,8 @@ impl VM {
         self.pc += 1;
         true
     }
-    fn r_registers(&self, index: u32, len: u32) -> Vec<Value> {
-        self.stack.last().unwrap().registers[index as usize..(index + len) as usize].iter().cloned().collect()
+    fn r_registers(&self, index: u32, len: u32) -> &[Value] {
+        &self.stack.last().unwrap().registers[index as usize..(index + len) as usize]
     }
     fn k_register(&self, index: u32) -> &Value {
         &self.constants[self.stack.last().unwrap().constant_offset + index as usize]
