@@ -1,6 +1,7 @@
+use crate::*;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
-    Number(i64),
+    Number(Integer),
     String(String),
     Boolean(bool),
     LuaFunction(usize),

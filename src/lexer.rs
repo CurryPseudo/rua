@@ -1,3 +1,4 @@
+use crate::*;
 use logos::Lexer;
 pub use logos::Logos;
 use enum_as_inner::EnumAsInner;
@@ -29,7 +30,7 @@ pub enum Token {
     #[token(")")]
     RIGHT_BRACKET,
     #[regex(r"[0-9]+", number)]
-    NUMBER(i64),
+    NUMBER(Integer),
     #[regex(r#""[^"]*""#, string)]
     STRING(String),
     #[token("local")]
@@ -55,10 +56,10 @@ fn same(lex: &mut Lexer<Token>) -> String {
     String::from(lex.slice())
 }
 
-fn number(lex: &mut Lexer<Token>) -> i64 {
+fn number(lex: &mut Lexer<Token>) -> Integer {
     let mut sum = 0;
     for c in lex.slice().bytes() {
-        sum = sum * 10 + (c - b'0') as i64;
+        sum = sum * 10 + (c - b'0') as Integer;
     }
     sum
 }

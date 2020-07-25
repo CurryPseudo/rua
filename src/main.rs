@@ -10,6 +10,8 @@ mod parser;
 pub use parser::*;
 mod lexer;
 pub use lexer::*;
+mod def;
+pub use def::*;
 
 fn main() {
     use std::fs::File;

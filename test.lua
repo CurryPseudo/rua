@@ -1,7 +1,7 @@
 local i = 0
 local a = 0
 local b = 1
-while i < 50 do
+while i < 30 do
 	local c = a + b
 	a = b
 	b = c
