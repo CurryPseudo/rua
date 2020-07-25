@@ -46,6 +46,7 @@ pub enum Value {
     String(String),
     Boolean(bool),
     LuaFunction(ExportLuaFunction),
+    Table(usize),
     Nil,
 }
 impl Value {
@@ -61,6 +62,7 @@ impl Value {
             Self::String(_) => "string",
             Self::Boolean(_) => "boolean",
             Self::LuaFunction(_) => "function",
+            Self::Table(_) => "table",
             Self::Nil => "nil",
         }
     }
@@ -78,6 +80,7 @@ impl ToString for Value {
                     "false".to_string()
                 }
             }
+            Self::Table(index) => index.to_string(),
             Self::Nil => "nil".to_string(),
             Self::LuaFunction(_) => "function".to_string(),
         }

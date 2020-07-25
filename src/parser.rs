@@ -175,10 +175,10 @@ impl FunctionStack {
             _ => straight_test(expression)
         }
         let current = self.instructions.len();
-        self.instructions.push(Instruction::JMP(0, jmp_length));
+        self.instructions.push(Instruction::JMP(jmp_length));
         Box::new(move |stack| {
             let jmp_to = stack.instructions.len();
-            stack.instructions[current] = Instruction::JMP(0, (jmp_to - (current + 1)) as i32);
+            stack.instructions[current] = Instruction::JMP((jmp_to - (current + 1)) as i32);
         })
     }
     fn set_expression_to_register(&mut self, register: u32, expression: AST) {
@@ -258,7 +258,7 @@ impl FunctionStack {
                 let pos = self.instructions.len();
                 let set_jmp_to = self.test_expression(None, *expression, 1);
                 self.add(*then);
-                self.instructions.push(Instruction::JMP(0, pos as i32 - self.instructions.len() as i32 - 1));
+                self.instructions.push(Instruction::JMP(pos as i32 - self.instructions.len() as i32 - 1));
                 set_jmp_to(self);
             }
             _ => unimplemented!(),

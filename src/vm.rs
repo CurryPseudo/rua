@@ -14,7 +14,7 @@ pub enum Instruction {
     ADD(u32, i32, i32),
     Eq(u32, i32, i32),
     Lt(u32, i32, i32),
-    JMP(u32, i32),
+    JMP(i32),
     LoadBool(u32, u32, u32),
     Return(u32, u32),
     Test(u32, u32),
@@ -110,7 +110,7 @@ impl VM {
                     self.pc += 1;
                 }
             }
-            Instruction::JMP(a, s_bx) => {
+            Instruction::JMP(s_bx) => {
                 self.pc = (self.pc as i32 + s_bx) as usize;
             }
             Instruction::LoadBool(a, b, c) => {
