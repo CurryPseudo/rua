@@ -1,16 +1,19 @@
 use crate::*;
+
+pub type ExportLuaFunction = fn(Vec<Value>) -> Vec<Value>;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
     Number(Integer),
     String(String),
     Boolean(bool),
-    LuaFunction(usize),
+    LuaFunction(ExportLuaFunction),
     Nil,
 }
 impl Value {
     pub fn is_nil(&self) -> bool {
         match self {
-            Nil => true,
+            Self::Nil => true,
             _ => false
         }
     }

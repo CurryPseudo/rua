@@ -58,13 +58,11 @@ impl VM {
     }
     pub fn import_builtin_function(&mut self) {
         let mut table = Table::new();
-        let mut i = 0;
-        for lua_function in get_lua_functions() {
+        for (name, lua_function) in get_builtin_functions() {
             table.set(
-                Value::String(String::from(lua_function.name())),
-                Value::LuaFunction(i),
+                Value::String(String::from(*name)),
+                Value::LuaFunction(*lua_function),
             );
-            i += 1;
         }
         self.up_value.push(table);
     }
@@ -84,8 +82,8 @@ impl VM {
             Instruction::Call(a, b, c) => {
                 let func = self.r_register(a);
                 match func {
-                    Value::LuaFunction(i) => {
-                        let result = get_lua_function(*i).evaluate(self.r_registers(a + 1, b - 1));
+                    Value::LuaFunction(lua_function) => {
+                        let result = lua_function(self.r_registers(a + 1, b - 1));
                         for i in 0..c - 1 {
                             *self.r_register_mut(a + i) = result[i as usize].clone();
                         }
@@ -130,8 +128,8 @@ impl VM {
         self.pc += 1;
         true
     }
-    fn r_registers(&self, index: u32, len: u32) -> &[Value] {
-        &self.stack.last().unwrap().registers[index as usize..(index + len) as usize]
+    fn r_registers(&self, index: u32, len: u32) -> Vec<Value> {
+        self.stack.last().unwrap().registers[index as usize..(index + len) as usize].iter().cloned().collect()
     }
     fn k_register(&self, index: u32) -> &Value {
         &self.constants[self.stack.last().unwrap().constant_offset + index as usize]
