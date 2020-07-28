@@ -29,6 +29,14 @@ pub enum Token {
     LEFT_BRACKET,
     #[token(")")]
     RIGHT_BRACKET,
+    #[token("[")]
+    LEFT_SQUARE_BRACKET,
+    #[token("]")]
+    RIGHT_SQUARE_BRACKET,
+    #[token("{")]
+    LEFT_CURLY_BRACKET,
+    #[token("}")]
+    RIGHT_CURLY_BRACKET,
     #[regex(r"[0-9]+", number)]
     NUMBER(Integer),
     #[regex(r#""[^"]*""#, string)]

@@ -80,7 +80,7 @@ impl ToString for Value {
                     "false".to_string()
                 }
             }
-            Self::Table(index) => index.to_string(),
+            Self::Table(index) => format!("table: {}", index),
             Self::Nil => "nil".to_string(),
             Self::LuaFunction(_) => "function".to_string(),
         }
@@ -111,7 +111,7 @@ impl std::ops::Add<&Value> for &Value {
             _ => (),
         }
         panic!(
-            "try to add a {:?} with {:?}",
+            "Attempt to add a {:?} with {:?}",
             self.type_name(),
             rhs.type_name()
         );
@@ -135,7 +135,7 @@ impl PartialOrd<Self> for Value {
             _ => (),
         }
         panic!(
-            "try to compare a {:?} with {:?}",
+            "Attempt to compare a {:?} with {:?}",
             self.type_name(),
             rhs.type_name()
         );

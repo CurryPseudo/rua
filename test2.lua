@@ -1,1 +1,0 @@
-print("baa" < "aaaa") 

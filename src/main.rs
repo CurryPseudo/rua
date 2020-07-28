@@ -17,7 +17,7 @@ fn main() {
     use std::fs::File;
     use std::io::prelude::*;
     let _ = pretty_env_logger::init();
-    let mut vm = VM::new();
+    let mut vm = VM::default();
     vm.import_builtin_function();
     let args: Vec<_> = std::env::args().collect();
     let lua_file_name = &args[1];

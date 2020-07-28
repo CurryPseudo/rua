@@ -19,6 +19,22 @@ enum TerminalSymbol {
 }
 use TerminalSymbol::*;
 
+impl TerminalSymbol {
+    pub fn from_index(terminal_count: usize, index: usize) -> Self {
+        if terminal_count == index {
+            End
+        } else {
+            Normal(index)
+        }
+    }
+    pub fn to_index(self, terminal_count: usize) -> usize {
+        match self {
+            Normal(i) => i,
+            End => terminal_count,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 enum Action {
     MoveIn(usize),
@@ -74,6 +90,9 @@ impl GrammarDebugInfo {
                 " "
             )
         )
+    }
+    fn print_state_item(&self, state: usize, item_index: usize) -> String {
+        self.print_item(&self.g[state][item_index])
     }
     fn print_state_items(&self, state: usize) -> Vec<String> {
         self.g[state]
@@ -267,15 +286,8 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                 map
             })
             .collect();
-        macro_rules! create_item_symbol_set {
-            () => {
-                g.iter()
-                    .map(|items| items.iter().map(|_| HashSet::new()).collect::<Vec<_>>())
-                    .collect::<Vec<Vec<HashSet<_>>>>()
-            };
-        }
-        let mut lalr_generated_terminal = create_item_symbol_set!();
-        let mut lalr_propagated_path = create_item_symbol_set!();
+        let mut lalr_generated_terminal = create_item_symbol_container(&g, HashSet::new);
+        let mut lalr_propagated_path = create_item_symbol_container(&g, HashSet::new);
         {
             for i in 0..g.len() {
                 let mut begin = Vec::new();
@@ -319,26 +331,38 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                 });
             }
         }
-        let mut look_forward_terminal = create_item_symbol_set!();
+        let mut look_forward_terminal = create_item_symbol_container(&g, HashSet::new);
+        let mut propagated_chain =
+            create_item_symbol_container(&g, || vec![Vec::new(); terminals.len() + 1]);
         dfs(
             {
-                let mut begin = Vec::new();
+                let mut begin = Vec::<(_, _, _, Option<(usize, usize)>)>::new();
                 for (i, item_generateds) in lalr_generated_terminal.iter().enumerate() {
                     for (j, generateds) in item_generateds.iter().enumerate() {
                         for generated in generateds {
-                            begin.push((i, j, Normal(*generated)));
+                            begin.push((i, j, Normal(*generated), None));
                         }
                     }
                 }
-                begin.push((0, 0, End));
+                begin.push((0, 0, End, None));
                 begin
             },
-            |(i, j, terminal)| {
-                look_forward_terminal[i][j].insert(terminal);
+            |(i, j, terminal, from)| {
+                if look_forward_terminal[i][j].insert(terminal) {
+                    if let Some(from) = from {
+                        let v = propagated_chain[from.0][from.1]
+                            [terminal.to_index(terminals.len())]
+                        .clone();
+                        let target =
+                            &mut propagated_chain[i][j][terminal.to_index(terminals.len())];
+                        *target = v;
+                        target.push(from)
+                    }
+                }
                 lalr_propagated_path[i][j]
                     .iter()
                     .map(|(propagated_state, propagated_item)| {
-                        (*propagated_state, *propagated_item, terminal)
+                        (*propagated_state, *propagated_item, terminal, Some((i, j)))
                     })
                     .collect()
             },
@@ -430,11 +454,7 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                         action_table[i][j] = MoveIn(*k);
                     }
                 }
-                let terminal = if j == debug_info.terminals.len() {
-                    End
-                } else {
-                    Normal(j)
-                };
+                let terminal = TerminalSymbol::from_index(debug_info.terminals.len(), j);
                 let mut reduce = None;
                 for (k, item) in debug_info.g[i].iter().enumerate() {
                     if look_forward_terminal[i][k].contains(&terminal) {
@@ -480,11 +500,18 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                                         error!("{}", production);
                                     }
                                 }
-                                if let Reduce(production_index, _, _, _) = reduce {
+                                if let Reduce(
+                                    production_index,
+                                    _,
+                                    terminal_count,
+                                    non_terminal_count,
+                                ) = reduce
+                                {
                                     error!(
-                                        "But need to reduce by [{}], with production [{}]",
+                                        "But need to reduce by [{}], with production [{}], by production chain [{}]",
                                         debug_info.to_name(&Terminal(j)),
-                                        debug_info.print_production(production_index)
+                                        debug_info.print_production(production_index),
+                                        str_join(propagated_chain[i][*item_to_index[i].get(&Item::new(production_index, terminal_count + non_terminal_count)).unwrap()][j].iter().map(|(i, j)| format!("I{} {}", i, debug_info.print_state_item(*i, *j))), ", ")
                                     );
                                 }
                                 panic!("Move-in/reduce conflict");
@@ -515,8 +542,10 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
         let to_terminal = |token: &T| *self.terminal_map.get(token.to_terminal_name()).unwrap();
         while !stack.is_empty() {
             let terminal = if let Some(token) = tokens.front() {
+                debug!("accept terminal {}", token.to_terminal_name());
                 to_terminal(token)
             } else {
+                debug!("accept terminal $");
                 self.action[0].len() - 1
             };
             let state = *stack.last().unwrap();
@@ -604,8 +633,8 @@ macro_rules! right {
     ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($right:tt),+ => $ast_builder:expr)) => {
         vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_builder)]
     };
-    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($right:tt)) => {
-        vec![(vec![stringify!($right)], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_name.get(0))]
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($right:tt),+)) => {
+        vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_name.get(0))]
     };
 }
 macro_rules! production {
@@ -665,11 +694,18 @@ fn dfs<T: Hash + PartialEq + Eq + Clone, N: FnMut(T) -> Vec<T>>(begins: Vec<T>, 
         }
     }
 }
+fn create_item_symbol_container<T, F: Fn() -> T>(g: &Vec<Vec<Item>>, create_t: F) -> Vec<Vec<T>> {
+    g.iter()
+        .map(|items| items.iter().map(|_| create_t()).collect::<Vec<_>>())
+        .collect::<Vec<Vec<T>>>()
+}
 pub struct SymbolVec<T>(Vec<Option<T>>);
 
 impl<T> std::iter::FromIterator<T> for SymbolVec<T> {
-    fn from_iter<I>(iter: I) -> Self 
-    where I: IntoIterator<Item = T>{
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
         Self(iter.into_iter().map(|x| Some(x)).collect())
     }
 }

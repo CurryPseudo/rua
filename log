@@ -1,0 +1,1091 @@
+   Compiling rua v0.1.0 (/home/currypseudo/Programming/rust/rua)
+warning: unused variable: `a`
+  --> src/vm.rs:89:33
+   |
+89 |             Instruction::Return(a, b) => {
+   |                                 ^ help: if this is intentional, prefix it with an underscore: `_a`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `b`
+  --> src/vm.rs:89:36
+   |
+89 |             Instruction::Return(a, b) => {
+   |                                    ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+warning: unused variable: `index_right`
+   --> src/parser.rs:367:35
+    |
+367 |                 Index(index_left, index_right) => {
+    |                                   ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_index_right`
+
+warning: unused variable: `a`
+   --> src/parser.rs:368:25
+    |
+368 |                     let a = self.get_expression_r_index(None, *index_left);
+    |                         ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+warning: 4 warnings emitted
+
+    Finished dev [unoptimized + debuginfo] target(s) in 1.51s
+     Running `target/debug/rua test.lua`
+ INFO  rua::parser > [LOCAL, ID("i"), ASSIGN, NUMBER(0), LOCAL, ID("a"), ASSIGN, NUMBER(0), LOCAL, ID("b"), ASSIGN, NUMBER(1), WHILE, ID("i"), LESSTHAN, NUMBER(30), DO, LOCAL, ID("c"), ASSIGN, ID("a"), ADD, ID("b"), ID("a"), ASSIGN, ID("b"), ID("b"), ASSIGN, ID("c"), ID("i"), ASSIGN, ID("i"), ADD, NUMBER(1), END, ID("print"), LEFT_BRACKET, ID("i"), COMMA, ID("a"), COMMA, ID("b"), RIGHT_BRACKET, ID("print"), LEFT_BRACKET, RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > ID TRUE FALSE WHILE IF DO THEN END COMMA LEFT_BRACKET RIGHT_BRACKET LEFT_SQUARE_BRACKET RIGHT_SQUARE_BRACKET LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET NUMBER STRING LOCAL ASSIGN ADD EQUAL INEQUAL LESSTHAN COMMENT ERROR
+ DEBUG rua::parser::lalr1 > S' -> Statements
+ DEBUG rua::parser::lalr1 > Statements -> Statements Statement
+ DEBUG rua::parser::lalr1 > Statements -> Statement
+ DEBUG rua::parser::lalr1 > Statement -> LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > Statement -> LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > Statement -> FunctionCall
+ DEBUG rua::parser::lalr1 > Statement -> WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > Statement -> IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > Expression -> Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > Expression -> Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > Expression -> Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > Expression -> Expression0
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression1
+ DEBUG rua::parser::lalr1 > Expression1 -> FunctionCall
+ DEBUG rua::parser::lalr1 > Expression1 -> TRUE
+ DEBUG rua::parser::lalr1 > Expression1 -> FALSE
+ DEBUG rua::parser::lalr1 > Expression1 -> NUMBER
+ DEBUG rua::parser::lalr1 > Expression1 -> STRING
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > Expression1 -> LeftVariable
+ DEBUG rua::parser::lalr1 > LeftVariable -> ID
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > ParamList -> ParamList COMMA Expression
+ DEBUG rua::parser::lalr1 > ParamList -> Expression
+ DEBUG rua::parser::lalr1 > LR(0):
+ DEBUG rua::parser::lalr1 > I0
+ DEBUG rua::parser::lalr1 > S' -> . Statements
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I15 S' -> Statements .,I12 Statement -> LeftVariable . ASSIGN Expression,I11 Statement -> FunctionCall .,I9 Statements -> Statement .,I15 Statements -> Statements . Statement]
+ DEBUG rua::parser::lalr1 > final [$]
+ DEBUG rua::parser::lalr1 > * Statements -> . Statement
+ DEBUG rua::parser::lalr1 > * Statement -> . IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Statement -> . LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Statement -> . LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * Statements -> . Statements Statement
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > WHILE => I4
+ DEBUG rua::parser::lalr1 > Expression1 => I5
+ DEBUG rua::parser::lalr1 > IF => I6
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > Statement => I9
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > FunctionCall => I11
+ DEBUG rua::parser::lalr1 > LeftVariable => I12
+ DEBUG rua::parser::lalr1 > LOCAL => I13
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > Statements => I15
+ DEBUG rua::parser::lalr1 > I1
+ DEBUG rua::parser::lalr1 > LeftVariable -> ID .
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET,ASSIGN,ADD,INEQUAL,EQUAL,THEN,LESSTHAN,RIGHT_BRACKET,DO,COMMA,RIGHT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [ASSIGN,LEFT_SQUARE_BRACKET,INEQUAL,THEN,EQUAL,LESSTHAN,DO,RIGHT_SQUARE_BRACKET,COMMA,ADD,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID . LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,RIGHT_SQUARE_BRACKET,LEFT_BRACKET,ID,LEFT_SQUARE_BRACKET,LEFT_CURLY_BRACKET,EQUAL,IF,COMMA,DO,WHILE,THEN,TRUE,LOCAL,INEQUAL,FALSE,RIGHT_BRACKET,END,STRING,NUMBER,ADD]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_BRACKET,TRUE,IF,INEQUAL,STRING,END,NUMBER,COMMA,WHILE,LOCAL,FALSE,RIGHT_BRACKET,ID,THEN,RIGHT_SQUARE_BRACKET,ADD,DO,LEFT_SQUARE_BRACKET,EQUAL,LESSTHAN,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID . LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated [TRUE,COMMA,LEFT_SQUARE_BRACKET,STRING,IF,ADD,DO,FALSE,ID,LESSTHAN,LOCAL,INEQUAL,LEFT_BRACKET,EQUAL,THEN,WHILE,NUMBER,RIGHT_BRACKET,LEFT_CURLY_BRACKET,RIGHT_SQUARE_BRACKET,END]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_BRACKET,ID,INEQUAL,COMMA,WHILE,RIGHT_SQUARE_BRACKET,ADD,END,IF,FALSE,TRUE,NUMBER,LOCAL,RIGHT_BRACKET,LEFT_CURLY_BRACKET,EQUAL,STRING,LESSTHAN,THEN,DO,LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I48
+ DEBUG rua::parser::lalr1 > I2
+ DEBUG rua::parser::lalr1 > Expression1 -> FALSE .
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,DO,INEQUAL,RIGHT_BRACKET,ADD,LEFT_SQUARE_BRACKET,EQUAL,THEN,RIGHT_SQUARE_BRACKET,COMMA]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_SQUARE_BRACKET,THEN,INEQUAL,ADD,COMMA,RIGHT_SQUARE_BRACKET,EQUAL,RIGHT_BRACKET,DO,LESSTHAN]
+ DEBUG rua::parser::lalr1 > I3
+ DEBUG rua::parser::lalr1 > Expression1 -> TRUE .
+ DEBUG rua::parser::lalr1 > generated [ADD,RIGHT_BRACKET,COMMA,LEFT_SQUARE_BRACKET,LESSTHAN,EQUAL,INEQUAL,RIGHT_SQUARE_BRACKET,THEN,DO]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_SQUARE_BRACKET,ADD,INEQUAL,RIGHT_BRACKET,DO,LESSTHAN,THEN,LEFT_SQUARE_BRACKET,EQUAL,COMMA]
+ DEBUG rua::parser::lalr1 > I4
+ DEBUG rua::parser::lalr1 > Statement -> WHILE . Expression DO Statements END
+ DEBUG rua::parser::lalr1 > generated [LEFT_CURLY_BRACKET,IF,TRUE,FALSE,ID,END,WHILE,LEFT_BRACKET,LOCAL,STRING,NUMBER]
+ DEBUG rua::parser::lalr1 > propagated [I44 Statement -> WHILE Expression . DO Statements END]
+ DEBUG rua::parser::lalr1 > final [LOCAL,FALSE,TRUE,LEFT_CURLY_BRACKET,IF,STRING,ID,WHILE,LEFT_BRACKET,END,NUMBER]
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > Expression => I44
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > I5
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET,ASSIGN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [ASSIGN,LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > LEFT_SQUARE_BRACKET => I24
+ DEBUG rua::parser::lalr1 > I6
+ DEBUG rua::parser::lalr1 > Statement -> IF . Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > generated [END,LOCAL,LEFT_CURLY_BRACKET,WHILE,STRING,TRUE,LEFT_BRACKET,NUMBER,IF,FALSE,ID]
+ DEBUG rua::parser::lalr1 > propagated [I40 Statement -> IF Expression . THEN Statements END]
+ DEBUG rua::parser::lalr1 > final [FALSE,STRING,WHILE,ID,TRUE,LEFT_BRACKET,LEFT_CURLY_BRACKET,LOCAL,END,IF,NUMBER]
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > Expression => I40
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > I7
+ DEBUG rua::parser::lalr1 > Expression1 -> NUMBER .
+ DEBUG rua::parser::lalr1 > generated [EQUAL,LEFT_SQUARE_BRACKET,INEQUAL,COMMA,RIGHT_SQUARE_BRACKET,LESSTHAN,DO,RIGHT_BRACKET,ADD,THEN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_BRACKET,LESSTHAN,ADD,RIGHT_SQUARE_BRACKET,COMMA,LEFT_SQUARE_BRACKET,EQUAL,THEN,INEQUAL,DO]
+ DEBUG rua::parser::lalr1 > I8
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_CURLY_BRACKET . RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,ADD,THEN,LEFT_SQUARE_BRACKET,EQUAL,DO,RIGHT_SQUARE_BRACKET,RIGHT_BRACKET,COMMA,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [EQUAL,LEFT_SQUARE_BRACKET,INEQUAL,COMMA,ADD,LESSTHAN,RIGHT_SQUARE_BRACKET,RIGHT_BRACKET,DO,THEN]
+ DEBUG rua::parser::lalr1 > RIGHT_CURLY_BRACKET => I39
+ DEBUG rua::parser::lalr1 > I9
+ DEBUG rua::parser::lalr1 > Statements -> Statement .
+ DEBUG rua::parser::lalr1 > generated [ID,NUMBER,LEFT_CURLY_BRACKET,TRUE,STRING,WHILE,FALSE,END,LEFT_BRACKET,LOCAL,IF]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LOCAL,NUMBER,ID,TRUE,$,WHILE,IF,LEFT_BRACKET,END,FALSE,STRING,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > I10
+ DEBUG rua::parser::lalr1 > Expression1 -> STRING .
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET,THEN,ADD,LESSTHAN,COMMA,RIGHT_SQUARE_BRACKET,DO,RIGHT_BRACKET,INEQUAL,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [COMMA,EQUAL,ADD,RIGHT_BRACKET,LESSTHAN,LEFT_SQUARE_BRACKET,THEN,INEQUAL,RIGHT_SQUARE_BRACKET,DO]
+ DEBUG rua::parser::lalr1 > I11
+ DEBUG rua::parser::lalr1 > Statement -> FunctionCall .
+ DEBUG rua::parser::lalr1 > generated [ID,STRING,LOCAL,LEFT_CURLY_BRACKET,WHILE,FALSE,IF,NUMBER,END,LEFT_BRACKET,TRUE]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LOCAL,IF,WHILE,$,STRING,NUMBER,ID,LEFT_CURLY_BRACKET,LEFT_BRACKET,FALSE,TRUE,END]
+ DEBUG rua::parser::lalr1 > Expression1 -> FunctionCall .
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > I12
+ DEBUG rua::parser::lalr1 > Statement -> LeftVariable . ASSIGN Expression
+ DEBUG rua::parser::lalr1 > generated [LOCAL,TRUE,WHILE,NUMBER,LEFT_CURLY_BRACKET,LEFT_BRACKET,END,IF,FALSE,STRING,ID]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [WHILE,STRING,FALSE,LEFT_CURLY_BRACKET,END,IF,LEFT_BRACKET,$,LOCAL,TRUE,ID,NUMBER]
+ DEBUG rua::parser::lalr1 > Expression1 -> LeftVariable .
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > ASSIGN => I37
+ DEBUG rua::parser::lalr1 > I13
+ DEBUG rua::parser::lalr1 > Statement -> LOCAL . ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > generated [FALSE,STRING,TRUE,LOCAL,LEFT_CURLY_BRACKET,WHILE,IF,ID,END,LEFT_BRACKET,NUMBER]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [NUMBER,TRUE,WHILE,LEFT_BRACKET,STRING,LOCAL,FALSE,IF,END,LEFT_CURLY_BRACKET,ID]
+ DEBUG rua::parser::lalr1 > ID => I34
+ DEBUG rua::parser::lalr1 > I14
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_BRACKET . Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET,LESSTHAN,INEQUAL,RIGHT_BRACKET,THEN,ADD,COMMA,EQUAL,RIGHT_SQUARE_BRACKET,DO]
+ DEBUG rua::parser::lalr1 > propagated [I17 Expression1 -> LEFT_BRACKET Expression . RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > final [DO,RIGHT_BRACKET,COMMA,RIGHT_SQUARE_BRACKET,LESSTHAN,INEQUAL,LEFT_SQUARE_BRACKET,THEN,ADD,EQUAL]
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > Expression => I17
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > I15
+ DEBUG rua::parser::lalr1 > S' -> Statements .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [$]
+ DEBUG rua::parser::lalr1 > Statements -> Statements . Statement
+ DEBUG rua::parser::lalr1 > generated [NUMBER,ID,LEFT_CURLY_BRACKET,TRUE,STRING,LEFT_BRACKET,WHILE,IF,LOCAL,FALSE]
+ DEBUG rua::parser::lalr1 > propagated [I16 Statements -> Statements Statement .,I12 Statement -> LeftVariable . ASSIGN Expression,I11 Statement -> FunctionCall .]
+ DEBUG rua::parser::lalr1 > final [LEFT_BRACKET,TRUE,LEFT_CURLY_BRACKET,FALSE,IF,WHILE,LOCAL,NUMBER,$,ID,STRING]
+ DEBUG rua::parser::lalr1 > * Statement -> . IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Statement -> . LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Statement -> . LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > LeftVariable => I12
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > Expression1 => I5
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > LOCAL => I13
+ DEBUG rua::parser::lalr1 > Statement => I16
+ DEBUG rua::parser::lalr1 > IF => I6
+ DEBUG rua::parser::lalr1 > FunctionCall => I11
+ DEBUG rua::parser::lalr1 > WHILE => I4
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > I16
+ DEBUG rua::parser::lalr1 > Statements -> Statements Statement .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_CURLY_BRACKET,LOCAL,WHILE,LEFT_BRACKET,ID,$,END,STRING,FALSE,TRUE,IF,NUMBER]
+ DEBUG rua::parser::lalr1 > I17
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,INEQUAL,RIGHT_BRACKET,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,EQUAL,LESSTHAN,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,INEQUAL,EQUAL,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,EQUAL,LESSTHAN,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,INEQUAL,RIGHT_BRACKET,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,EQUAL,RIGHT_BRACKET,LESSTHAN]
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_BRACKET Expression . RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [THEN,DO,EQUAL,RIGHT_BRACKET,COMMA,LEFT_SQUARE_BRACKET,RIGHT_SQUARE_BRACKET,LESSTHAN,ADD,INEQUAL]
+ DEBUG rua::parser::lalr1 > RIGHT_BRACKET => I33
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > I18
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression1 .
+ DEBUG rua::parser::lalr1 > generated [EQUAL,RIGHT_SQUARE_BRACKET,COMMA,THEN,ADD,RIGHT_BRACKET,INEQUAL,DO,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_BRACKET,COMMA,RIGHT_SQUARE_BRACKET,INEQUAL,EQUAL,LESSTHAN,DO,THEN,ADD]
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > generated [COMMA,DO,THEN,ADD,LESSTHAN,INEQUAL,LEFT_SQUARE_BRACKET,RIGHT_BRACKET,EQUAL,RIGHT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_BRACKET,THEN,EQUAL,INEQUAL,DO,COMMA,LESSTHAN,ADD,LEFT_SQUARE_BRACKET,RIGHT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > LEFT_SQUARE_BRACKET => I24
+ DEBUG rua::parser::lalr1 > I19
+ DEBUG rua::parser::lalr1 > Expression1 -> LeftVariable .
+ DEBUG rua::parser::lalr1 > generated [DO,INEQUAL,ADD,LEFT_SQUARE_BRACKET,RIGHT_SQUARE_BRACKET,RIGHT_BRACKET,EQUAL,LESSTHAN,COMMA,THEN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_SQUARE_BRACKET,RIGHT_BRACKET,THEN,LESSTHAN,ADD,LEFT_SQUARE_BRACKET,INEQUAL,DO,EQUAL,COMMA]
+ DEBUG rua::parser::lalr1 > I20
+ DEBUG rua::parser::lalr1 > Expression -> Expression0 .
+ DEBUG rua::parser::lalr1 > generated [THEN,COMMA,RIGHT_BRACKET,RIGHT_SQUARE_BRACKET,LESSTHAN,DO,INEQUAL,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [COMMA,LESSTHAN,EQUAL,INEQUAL,RIGHT_SQUARE_BRACKET,THEN,DO,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 . ADD Expression1
+ DEBUG rua::parser::lalr1 > generated [COMMA,INEQUAL,RIGHT_SQUARE_BRACKET,ADD,RIGHT_BRACKET,EQUAL,DO,LESSTHAN,THEN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [THEN,COMMA,RIGHT_BRACKET,RIGHT_SQUARE_BRACKET,DO,EQUAL,ADD,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > ADD => I22
+ DEBUG rua::parser::lalr1 > I21
+ DEBUG rua::parser::lalr1 > Expression1 -> FunctionCall .
+ DEBUG rua::parser::lalr1 > generated [ADD,EQUAL,THEN,LEFT_SQUARE_BRACKET,DO,COMMA,RIGHT_SQUARE_BRACKET,INEQUAL,LESSTHAN,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_SQUARE_BRACKET,LESSTHAN,THEN,COMMA,INEQUAL,LEFT_SQUARE_BRACKET,EQUAL,RIGHT_BRACKET,DO,ADD]
+ DEBUG rua::parser::lalr1 > I22
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 ADD . Expression1
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I23 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I21 Expression1 -> FunctionCall .,I23 Expression0 -> Expression0 ADD Expression1 .,I19 Expression1 -> LeftVariable .]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > Expression1 => I23
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > I23
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 ADD Expression1 .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > generated [LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LEFT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > LEFT_SQUARE_BRACKET => I24
+ DEBUG rua::parser::lalr1 > I24
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 LEFT_SQUARE_BRACKET . Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I25 LeftVariable -> Expression1 LEFT_SQUARE_BRACKET Expression . RIGHT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > Expression => I25
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > I25
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [INEQUAL,LESSTHAN,EQUAL,RIGHT_SQUARE_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LESSTHAN,INEQUAL,RIGHT_SQUARE_BRACKET,EQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,RIGHT_SQUARE_BRACKET,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [EQUAL,RIGHT_SQUARE_BRACKET,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,RIGHT_SQUARE_BRACKET,INEQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LESSTHAN,EQUAL,RIGHT_SQUARE_BRACKET,INEQUAL]
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 LEFT_SQUARE_BRACKET Expression . RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > RIGHT_SQUARE_BRACKET => I28
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > I26
+ DEBUG rua::parser::lalr1 > Expression -> Expression INEQUAL . Expression0
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I32 Expression -> Expression INEQUAL Expression0 .,I18 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I21 Expression1 -> FunctionCall .,I32 Expression0 -> Expression0 . ADD Expression1,I19 Expression1 -> LeftVariable .,I18 Expression0 -> Expression1 .]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > Expression0 => I32
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > I27
+ DEBUG rua::parser::lalr1 > Expression -> Expression EQUAL . Expression0
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I18 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I31 Expression -> Expression EQUAL Expression0 .,I19 Expression1 -> LeftVariable .,I18 Expression0 -> Expression1 .,I21 Expression1 -> FunctionCall .,I31 Expression0 -> Expression0 . ADD Expression1]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > Expression0 => I31
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > I28
+ DEBUG rua::parser::lalr1 > LeftVariable -> Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I29
+ DEBUG rua::parser::lalr1 > Expression -> Expression LESSTHAN . Expression0
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I30 Expression0 -> Expression0 . ADD Expression1,I19 Expression1 -> LeftVariable .,I21 Expression1 -> FunctionCall .,I18 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I30 Expression -> Expression LESSTHAN Expression0 .,I18 Expression0 -> Expression1 .]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > Expression0 => I30
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > I30
+ DEBUG rua::parser::lalr1 > Expression -> Expression LESSTHAN Expression0 .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 . ADD Expression1
+ DEBUG rua::parser::lalr1 > generated [ADD]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [ADD]
+ DEBUG rua::parser::lalr1 > ADD => I22
+ DEBUG rua::parser::lalr1 > I31
+ DEBUG rua::parser::lalr1 > Expression -> Expression EQUAL Expression0 .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 . ADD Expression1
+ DEBUG rua::parser::lalr1 > generated [ADD]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [ADD]
+ DEBUG rua::parser::lalr1 > ADD => I22
+ DEBUG rua::parser::lalr1 > I32
+ DEBUG rua::parser::lalr1 > Expression -> Expression INEQUAL Expression0 .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > Expression0 -> Expression0 . ADD Expression1
+ DEBUG rua::parser::lalr1 > generated [ADD]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [ADD]
+ DEBUG rua::parser::lalr1 > ADD => I22
+ DEBUG rua::parser::lalr1 > I33
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_BRACKET Expression RIGHT_BRACKET .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I34
+ DEBUG rua::parser::lalr1 > Statement -> LOCAL ID . ASSIGN Expression
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > ASSIGN => I35
+ DEBUG rua::parser::lalr1 > I35
+ DEBUG rua::parser::lalr1 > Statement -> LOCAL ID ASSIGN . Expression
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I21 Expression1 -> FunctionCall .,I20 Expression0 -> Expression0 . ADD Expression1,I18 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I36 Statement -> LOCAL ID ASSIGN Expression .,I18 Expression0 -> Expression1 .,I36 Expression -> Expression . INEQUAL Expression0,I20 Expression -> Expression0 .,I36 Expression -> Expression . LESSTHAN Expression0,I36 Expression -> Expression . EQUAL Expression0,I19 Expression1 -> LeftVariable .]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > Expression => I36
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > I36
+ DEBUG rua::parser::lalr1 > Statement -> LOCAL ID ASSIGN Expression .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,LESSTHAN,EQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,EQUAL,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [EQUAL,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [INEQUAL,EQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,LESSTHAN,EQUAL]
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > I37
+ DEBUG rua::parser::lalr1 > Statement -> LeftVariable ASSIGN . Expression
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I38 Expression -> Expression . LESSTHAN Expression0,I21 Expression1 -> FunctionCall .,I20 Expression0 -> Expression0 . ADD Expression1,I38 Expression -> Expression . INEQUAL Expression0,I38 Statement -> LeftVariable ASSIGN Expression .,I19 Expression1 -> LeftVariable .,I18 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I18 Expression0 -> Expression1 .,I38 Expression -> Expression . EQUAL Expression0,I20 Expression -> Expression0 .]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > Expression => I38
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > I38
+ DEBUG rua::parser::lalr1 > Statement -> LeftVariable ASSIGN Expression .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [INEQUAL,LESSTHAN,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [EQUAL,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,INEQUAL,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LESSTHAN,EQUAL,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,LESSTHAN,EQUAL]
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > I39
+ DEBUG rua::parser::lalr1 > Expression1 -> LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I40
+ DEBUG rua::parser::lalr1 > Statement -> IF Expression . THEN Statements END
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [IF,LEFT_CURLY_BRACKET,LOCAL,END,FALSE,NUMBER,TRUE,WHILE,LEFT_BRACKET,ID,STRING]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,INEQUAL,THEN,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [THEN,EQUAL,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,LESSTHAN,INEQUAL,THEN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [THEN,LESSTHAN,EQUAL,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,THEN,EQUAL,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,EQUAL,THEN,LESSTHAN]
+ DEBUG rua::parser::lalr1 > THEN => I41
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > I41
+ DEBUG rua::parser::lalr1 > Statement -> IF Expression THEN . Statements END
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I42 Statement -> IF Expression THEN Statements . END]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Statements -> . Statement
+ DEBUG rua::parser::lalr1 > * Statement -> . IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Statement -> . LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Statement -> . LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * Statements -> . Statements Statement
+ DEBUG rua::parser::lalr1 > FunctionCall => I11
+ DEBUG rua::parser::lalr1 > Expression1 => I5
+ DEBUG rua::parser::lalr1 > IF => I6
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > LOCAL => I13
+ DEBUG rua::parser::lalr1 > LeftVariable => I12
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > WHILE => I4
+ DEBUG rua::parser::lalr1 > Statements => I42
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > Statement => I9
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > I42
+ DEBUG rua::parser::lalr1 > Statements -> Statements . Statement
+ DEBUG rua::parser::lalr1 > generated [IF,ID,WHILE,NUMBER,LEFT_CURLY_BRACKET,LEFT_BRACKET,TRUE,LOCAL,FALSE,END,STRING]
+ DEBUG rua::parser::lalr1 > propagated [I12 Statement -> LeftVariable . ASSIGN Expression,I16 Statements -> Statements Statement .,I11 Statement -> FunctionCall .]
+ DEBUG rua::parser::lalr1 > final [STRING,NUMBER,LOCAL,TRUE,WHILE,FALSE,IF,LEFT_CURLY_BRACKET,LEFT_BRACKET,ID,END]
+ DEBUG rua::parser::lalr1 > Statement -> IF Expression THEN Statements . END
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Statement -> . IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Statement -> . LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Statement -> . LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > FunctionCall => I11
+ DEBUG rua::parser::lalr1 > Expression1 => I5
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > WHILE => I4
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > Statement => I16
+ DEBUG rua::parser::lalr1 > END => I43
+ DEBUG rua::parser::lalr1 > LeftVariable => I12
+ DEBUG rua::parser::lalr1 > LOCAL => I13
+ DEBUG rua::parser::lalr1 > IF => I6
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > I43
+ DEBUG rua::parser::lalr1 > Statement -> IF Expression THEN Statements END .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I44
+ DEBUG rua::parser::lalr1 > Statement -> WHILE Expression . DO Statements END
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [STRING,LOCAL,FALSE,LEFT_CURLY_BRACKET,IF,ID,LEFT_BRACKET,TRUE,WHILE,NUMBER,END]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,DO,INEQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,LESSTHAN,DO,EQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,EQUAL,INEQUAL,DO]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,DO,EQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,DO,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [EQUAL,INEQUAL,DO,LESSTHAN]
+ DEBUG rua::parser::lalr1 > DO => I45
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > I45
+ DEBUG rua::parser::lalr1 > Statement -> WHILE Expression DO . Statements END
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I46 Statement -> WHILE Expression DO Statements . END]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Statements -> . Statement
+ DEBUG rua::parser::lalr1 > * Statement -> . IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Statement -> . LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Statement -> . LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * Statements -> . Statements Statement
+ DEBUG rua::parser::lalr1 > FunctionCall => I11
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > WHILE => I4
+ DEBUG rua::parser::lalr1 > Statement => I9
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > LeftVariable => I12
+ DEBUG rua::parser::lalr1 > Statements => I46
+ DEBUG rua::parser::lalr1 > IF => I6
+ DEBUG rua::parser::lalr1 > Expression1 => I5
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > LOCAL => I13
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > I46
+ DEBUG rua::parser::lalr1 > Statements -> Statements . Statement
+ DEBUG rua::parser::lalr1 > generated [NUMBER,WHILE,IF,TRUE,LOCAL,STRING,FALSE,LEFT_BRACKET,END,ID,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated [I12 Statement -> LeftVariable . ASSIGN Expression,I16 Statements -> Statements Statement .,I11 Statement -> FunctionCall .]
+ DEBUG rua::parser::lalr1 > final [FALSE,NUMBER,LEFT_BRACKET,IF,END,STRING,ID,LEFT_CURLY_BRACKET,TRUE,LOCAL,WHILE]
+ DEBUG rua::parser::lalr1 > Statement -> WHILE Expression DO Statements . END
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Statement -> . IF Expression THEN Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . WHILE Expression DO Statements END
+ DEBUG rua::parser::lalr1 > * Statement -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Statement -> . LeftVariable ASSIGN Expression
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Statement -> . LOCAL ID ASSIGN Expression
+ DEBUG rua::parser::lalr1 > FunctionCall => I11
+ DEBUG rua::parser::lalr1 > LeftVariable => I12
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > END => I47
+ DEBUG rua::parser::lalr1 > Expression1 => I5
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > LOCAL => I13
+ DEBUG rua::parser::lalr1 > IF => I6
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > Statement => I16
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > WHILE => I4
+ DEBUG rua::parser::lalr1 > I47
+ DEBUG rua::parser::lalr1 > Statement -> WHILE Expression DO Statements END .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I48
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET . ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I51 FunctionCall -> ID LEFT_BRACKET ParamList . RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET . RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * ParamList -> . Expression
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > * ParamList -> . ParamList COMMA Expression
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > RIGHT_BRACKET => I49
+ DEBUG rua::parser::lalr1 > Expression => I50
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > ParamList => I51
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > I49
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET RIGHT_BRACKET .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I50
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [COMMA,INEQUAL,LESSTHAN,RIGHT_BRACKET,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [COMMA,RIGHT_BRACKET,LESSTHAN,EQUAL,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,EQUAL,RIGHT_BRACKET,COMMA,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,LESSTHAN,COMMA,RIGHT_BRACKET,EQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [LESSTHAN,INEQUAL,COMMA,RIGHT_BRACKET,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [RIGHT_BRACKET,COMMA,EQUAL,INEQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > ParamList -> Expression .
+ DEBUG rua::parser::lalr1 > generated [COMMA,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [COMMA,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > I51
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET ParamList . RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > ParamList -> ParamList . COMMA Expression
+ DEBUG rua::parser::lalr1 > generated [COMMA,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [COMMA,RIGHT_BRACKET]
+ DEBUG rua::parser::lalr1 > RIGHT_BRACKET => I52
+ DEBUG rua::parser::lalr1 > COMMA => I53
+ DEBUG rua::parser::lalr1 > I52
+ DEBUG rua::parser::lalr1 > FunctionCall -> ID LEFT_BRACKET ParamList RIGHT_BRACKET .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > I53
+ DEBUG rua::parser::lalr1 > ParamList -> ParamList COMMA . Expression
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated [I19 Expression1 -> LeftVariable .,I20 Expression0 -> Expression0 . ADD Expression1,I21 Expression1 -> FunctionCall .,I54 Expression -> Expression . INEQUAL Expression0,I18 Expression0 -> Expression1 .,I20 Expression -> Expression0 .,I18 LeftVariable -> Expression1 . LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET,I54 ParamList -> ParamList COMMA Expression .,I54 Expression -> Expression . LESSTHAN Expression0,I54 Expression -> Expression . EQUAL Expression0]
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression0
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression1
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LeftVariable
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . Expression1 LEFT_SQUARE_BRACKET Expression RIGHT_SQUARE_BRACKET
+ DEBUG rua::parser::lalr1 > * LeftVariable -> . ID
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_BRACKET Expression RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression1 -> . STRING
+ DEBUG rua::parser::lalr1 > * Expression1 -> . NUMBER
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FALSE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . TRUE
+ DEBUG rua::parser::lalr1 > * Expression1 -> . FunctionCall
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * FunctionCall -> . ID LEFT_BRACKET ParamList RIGHT_BRACKET
+ DEBUG rua::parser::lalr1 > * Expression0 -> . Expression0 ADD Expression1
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > * Expression -> . Expression EQUAL Expression0
+ DEBUG rua::parser::lalr1 > STRING => I10
+ DEBUG rua::parser::lalr1 > NUMBER => I7
+ DEBUG rua::parser::lalr1 > FunctionCall => I21
+ DEBUG rua::parser::lalr1 > Expression0 => I20
+ DEBUG rua::parser::lalr1 > TRUE => I3
+ DEBUG rua::parser::lalr1 > Expression => I54
+ DEBUG rua::parser::lalr1 > LEFT_CURLY_BRACKET => I8
+ DEBUG rua::parser::lalr1 > LeftVariable => I19
+ DEBUG rua::parser::lalr1 > Expression1 => I18
+ DEBUG rua::parser::lalr1 > FALSE => I2
+ DEBUG rua::parser::lalr1 > LEFT_BRACKET => I14
+ DEBUG rua::parser::lalr1 > ID => I1
+ DEBUG rua::parser::lalr1 > I54
+ DEBUG rua::parser::lalr1 > Expression -> Expression . EQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,LESSTHAN,INEQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [EQUAL,INEQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . INEQUAL Expression0
+ DEBUG rua::parser::lalr1 > generated [INEQUAL,LESSTHAN,EQUAL]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [LESSTHAN,EQUAL,INEQUAL]
+ DEBUG rua::parser::lalr1 > Expression -> Expression . LESSTHAN Expression0
+ DEBUG rua::parser::lalr1 > generated [EQUAL,INEQUAL,LESSTHAN]
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final [INEQUAL,LESSTHAN,EQUAL]
+ DEBUG rua::parser::lalr1 > ParamList -> ParamList COMMA Expression .
+ DEBUG rua::parser::lalr1 > generated []
+ DEBUG rua::parser::lalr1 > propagated []
+ DEBUG rua::parser::lalr1 > final []
+ DEBUG rua::parser::lalr1 > INEQUAL => I26
+ DEBUG rua::parser::lalr1 > EQUAL => I27
+ DEBUG rua::parser::lalr1 > LESSTHAN => I29
+ DEBUG rua::parser::lalr1 > first(S') = [LOCAL,ID,FALSE,TRUE,IF,WHILE,STRING,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(Statements) = [LOCAL,ID,FALSE,TRUE,IF,WHILE,STRING,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(Statement) = [LOCAL,ID,FALSE,TRUE,IF,WHILE,STRING,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(Expression) = [TRUE,ID,STRING,FALSE,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(Expression0) = [TRUE,ID,STRING,FALSE,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(Expression1) = [TRUE,ID,STRING,FALSE,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(LeftVariable) = [TRUE,ID,STRING,FALSE,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > first(FunctionCall) = [ID]
+ DEBUG rua::parser::lalr1 > first(ParamList) = [TRUE,ID,STRING,FALSE,LEFT_BRACKET,NUMBER,LEFT_CURLY_BRACKET]
+ DEBUG rua::parser::lalr1 > push 13
+ DEBUG rua::parser::lalr1 > push 34
+ DEBUG rua::parser::lalr1 > push 35
+ DEBUG rua::parser::lalr1 > push 7
+ ERROR rua::parser::lalr1 > current state:
+ ERROR rua::parser::lalr1 > Expression1 -> NUMBER .
+ ERROR rua::parser::lalr1 > expect token [DO,THEN,COMMA,RIGHT_BRACKET,LEFT_SQUARE_BRACKET,RIGHT_SQUARE_BRACKET,ADD,EQUAL,INEQUAL,LESSTHAN], get [LOCAL]
+thread 'main' panicked at 'explicit panic', src/parser/lalr1.rs:604:21
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

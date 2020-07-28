@@ -18,15 +18,19 @@ pub enum Instruction {
     LoadBool(u32, u32, u32),
     Return(u32, u32),
     Test(u32, u32),
+    NewTable(u32),
+    GetTable(u32, u32, i32),
+    SetTable(u32, i32, i32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct VM {
     pub stack: Vec<CallInfo>,
     pub constants: Vec<Value>,
     pub instructions: Vec<Instruction>,
     pub pc: usize,
     pub up_value: Vec<Table>,
+    tables: Vec<Table>,
 }
 
 #[derive(Debug)]
@@ -47,15 +51,6 @@ impl CallInfo {
 }
 
 impl VM {
-    pub fn new() -> Self {
-        Self {
-            stack: Vec::new(),
-            constants: Vec::new(),
-            instructions: Vec::new(),
-            pc: 0,
-            up_value: Vec::new(),
-        }
-    }
     pub fn import_builtin_function(&mut self) {
         let mut table = Table::new();
         for export_lua_function in get_builtin_functions() {
@@ -124,6 +119,22 @@ impl VM {
                     self.pc += 1;
                 }
             }
+            Instruction::NewTable(a) => {
+                *self.r_register_mut(a) = Value::Table(self.tables.len());
+                self.tables.push(Table::new());
+            }
+            Instruction::GetTable(a, b, c) => {
+                *self.r_register_mut(a) = self
+                    .get_table(self.r_register(b))
+                    .get(self.rk_register(c))
+                    .clone();
+            }
+            Instruction::SetTable(a, b, c) => {
+                let b = self.rk_register(b).clone();
+                let c = self.rk_register(c).clone();
+                let table = self.get_table_mut(a);
+                table.set(b, c);
+            }
         }
         self.pc += 1;
         true
@@ -150,13 +161,35 @@ impl VM {
     fn get_up_value(&self, index: u32) -> &Table {
         &self.up_value[self.up_value.len() - 1 - index as usize]
     }
+    fn get_table_mut(&mut self, register: u32) -> &mut Table {
+        if let Value::Table(i) = self.r_register(register) {
+            let i = *i;
+            &mut self.tables[i]
+        } else {
+            panic!(
+                "Attempt to index a {} value",
+                self.r_register(register).type_name()
+            );
+        }
+    }
+    fn get_table(&self, value: &Value) -> &Table {
+        if let Value::Table(i) = value {
+            &self.tables[*i]
+        } else {
+            panic!("Attempt to index a {} value", value.type_name());
+        }
+    }
 }
 
 impl VM {
     pub fn add_function(&mut self, function_stack: FunctionStack) {
-        self.stack.push(CallInfo::new(function_stack.variable_count as usize, self.constants.len(), self.instructions.len()));
+        self.stack.push(CallInfo::new(
+            function_stack.variable_count as usize,
+            self.constants.len(),
+            self.instructions.len(),
+        ));
         self.constants.extend(function_stack.constants.into_iter());
-        self.instructions.extend(function_stack.instructions.into_iter());
-
+        self.instructions
+            .extend(function_stack.instructions.into_iter());
     }
 }

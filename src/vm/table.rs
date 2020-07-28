@@ -9,9 +9,19 @@ impl Table {
         Self(HashMap::new())
     }
     pub fn get(&self, value: &Value) -> &Value {
-        self.0.get(value).unwrap()
+        if let Some(value) = self.0.get(value) {
+            value
+        }
+        else {
+            &Value::Nil
+        }
     }
     pub fn set(&mut self, key: Value, value: Value) {
-        self.0.insert(key, value);
+        if let Value::Nil = value {
+            self.0.remove(&key);
+        }
+        else {
+            self.0.insert(key, value);
+        }
     }
 }
