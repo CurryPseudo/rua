@@ -29,6 +29,8 @@ pub enum Token {
     LEFT_BRACKET,
     #[token(")")]
     RIGHT_BRACKET,
+    #[token(".")]
+    DOT,
     #[token("[")]
     LEFT_SQUARE_BRACKET,
     #[token("]")]
@@ -47,12 +49,16 @@ pub enum Token {
     ASSIGN,
     #[token("+")]
     ADD,
+    #[token("*")]
+    MUL,
     #[token("==")]
     EQUAL,
     #[token("~=")]
     INEQUAL,
     #[token("<")]
     LESSTHAN,
+    #[token("not")]
+    NOT,
     #[regex(r"--.*", logos::skip)]
     COMMENT,
     #[error]

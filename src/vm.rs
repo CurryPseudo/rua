@@ -4,6 +4,7 @@ pub use table::*;
 pub use value::*;
 
 use crate::*;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum Instruction {
@@ -11,11 +12,13 @@ pub enum Instruction {
     LoadK(u32, u32),
     Call(u32, u32, u32),
     Move(u32, u32),
-    ADD(u32, i32, i32),
+    Add(u32, i32, i32),
+    Mul(u32, i32, i32),
     Eq(u32, i32, i32),
     Lt(u32, i32, i32),
-    JMP(i32),
+    Jmp(i32),
     LoadBool(u32, u32, u32),
+    LoadNil(u32, u32),
     Return(u32, u32),
     Test(u32, u32),
     NewTable(u32),
@@ -29,8 +32,9 @@ pub struct VM {
     pub constants: Vec<Value>,
     pub instructions: Vec<Instruction>,
     pub pc: usize,
-    pub up_value: Vec<Table>,
-    tables: Vec<Table>,
+    pub up_value: Vec<usize>,
+    tables: HashMap<usize, Table>,
+    next_table_id: usize,
 }
 
 #[derive(Debug)]
@@ -51,15 +55,33 @@ impl CallInfo {
 }
 
 impl VM {
-    pub fn import_builtin_function(&mut self) {
-        let mut table = Table::new();
-        for export_lua_function in get_builtin_functions() {
-            table.set(
-                Value::String(export_lua_function.name().to_string()),
-                Value::LuaFunction(export_lua_function.clone()),
-            );
+    pub fn new() -> Self {
+        let mut r = Self::default();
+        let table = r.new_table();
+        r.up_value.push(table);
+        r
+    }
+    pub fn import_foreign(&mut self, foreign: Foreign) {
+        let mut table_id = self.up_value[0];
+        let mut last: Option<&'static str> = None;
+        for pre in foreign.pre {
+            if let Some(last) = last {
+                let new_table = self.new_table();
+                self.get_table_mut_from_id(table_id)
+                    .set(Value::String(last.to_string()), Value::Table(new_table));
+                table_id = new_table;
+            }
+            last = Some(pre)
         }
-        self.up_value.push(table);
+        self.get_table_mut_from_id(table_id).set(
+            Value::String(last.unwrap().to_string()),
+            Value::LuaFunction(foreign.func),
+        );
+    }
+    pub fn import_builtin(&mut self) {
+        for foreign in get_builtins() {
+            self.import_foreign(foreign.clone());
+        }
     }
     pub fn run(&mut self) -> bool {
         if self.pc >= self.instructions.len() {
@@ -78,9 +100,18 @@ impl VM {
                 let func = self.r_register(a);
                 match func {
                     Value::LuaFunction(lua_function) => {
-                        let result = lua_function.evaluate(self.r_registers(a + 1, b - 1));
-                        for i in 0..c - 1 {
-                            *self.r_register_mut(a + i) = result[i as usize].clone();
+                        let results = lua_function.evaluate(self.r_registers(a + 1, b - 1));
+                        let mut i = 0;
+                        for result in results {
+                            if i >= c - 1 {
+                                break;
+                            }
+                            *self.r_register_mut(a + i) = result;
+                            i += 1;
+                        }
+                        while i < c - 1 {
+                            *self.r_register_mut(a + i) = Value::Nil;
+                            i += 1;
                         }
                     }
                     _ => panic!("{:?} is not function", func),
@@ -92,8 +123,11 @@ impl VM {
             Instruction::Move(a, b) => {
                 *self.r_register_mut(a) = self.r_register(b).clone();
             }
-            Instruction::ADD(a, b, c) => {
+            Instruction::Add(a, b, c) => {
                 *self.r_register_mut(a) = self.rk_register(b) + self.rk_register(c);
+            }
+            Instruction::Mul(a, b, c) => {
+                *self.r_register_mut(a) = self.rk_register(b) * self.rk_register(c);
             }
             Instruction::Eq(a, b, c) => {
                 if (self.rk_register(b) == self.rk_register(c)) ^ (a == 1) {
@@ -105,7 +139,7 @@ impl VM {
                     self.pc += 1;
                 }
             }
-            Instruction::JMP(s_bx) => {
+            Instruction::Jmp(s_bx) => {
                 self.pc = (self.pc as i32 + s_bx) as usize;
             }
             Instruction::LoadBool(a, b, c) => {
@@ -120,20 +154,24 @@ impl VM {
                 }
             }
             Instruction::NewTable(a) => {
-                *self.r_register_mut(a) = Value::Table(self.tables.len());
-                self.tables.push(Table::new());
+                *self.r_register_mut(a) = Value::Table(self.new_table());
             }
             Instruction::GetTable(a, b, c) => {
                 *self.r_register_mut(a) = self
-                    .get_table(self.r_register(b))
+                    .get_table_from_value(self.r_register(b))
                     .get(self.rk_register(c))
                     .clone();
             }
             Instruction::SetTable(a, b, c) => {
                 let b = self.rk_register(b).clone();
                 let c = self.rk_register(c).clone();
-                let table = self.get_table_mut(a);
+                let table = self.get_table_mut_from_register(a);
                 table.set(b, c);
+            }
+            Instruction::LoadNil(a, b) => {
+                for i in 0..b + 1 {
+                    *self.r_register_mut(a + i) = Value::Nil;
+                }
             }
         }
         self.pc += 1;
@@ -159,12 +197,18 @@ impl VM {
         &mut self.stack.last_mut().unwrap().registers[index as usize]
     }
     fn get_up_value(&self, index: u32) -> &Table {
-        &self.up_value[self.up_value.len() - 1 - index as usize]
+        &self.tables[&self.up_value[self.up_value.len() - 1 - index as usize]]
     }
-    fn get_table_mut(&mut self, register: u32) -> &mut Table {
-        if let Value::Table(i) = self.r_register(register) {
-            let i = *i;
-            &mut self.tables[i]
+    fn new_table(&mut self) -> usize {
+        let r = self.next_table_id;
+        self.tables.insert(self.next_table_id, Table::new());
+        self.next_table_id += 1;
+        r
+    }
+    fn get_table_mut_from_register(&mut self, register: u32) -> &mut Table {
+        if let Value::Table(id) = self.r_register(register) {
+            let id = *id;
+            self.get_table_mut_from_id(id)
         } else {
             panic!(
                 "Attempt to index a {} value",
@@ -172,9 +216,12 @@ impl VM {
             );
         }
     }
-    fn get_table(&self, value: &Value) -> &Table {
-        if let Value::Table(i) = value {
-            &self.tables[*i]
+    fn get_table_mut_from_id(&mut self, id: usize) -> &mut Table {
+        self.tables.get_mut(&id).unwrap()
+    }
+    fn get_table_from_value(&self, value: &Value) -> &Table {
+        if let Value::Table(id) = value {
+            &self.tables[id]
         } else {
             panic!("Attempt to index a {} value", value.type_name());
         }

@@ -39,7 +39,6 @@ impl std::hash::Hash for ExportLuaFunction {
         self.name.hash(state);
     }
 }
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
     Number(Integer),
@@ -66,6 +65,12 @@ impl Value {
             Self::Nil => "nil",
         }
     }
+    pub fn as_number(&self) -> Integer {
+        match self {
+            Self::Number(n) => *n,
+            _ => panic!("Attempt to do numberic operation on {}", self.type_name())
+        }
+    }
 }
 
 impl ToString for Value {
@@ -80,7 +85,7 @@ impl ToString for Value {
                     "false".to_string()
                 }
             }
-            Self::Table(index) => format!("table: {}", index),
+            Self::Table(id) => format!("table: {}", id),
             Self::Nil => "nil".to_string(),
             Self::LuaFunction(_) => "function".to_string(),
         }
@@ -98,23 +103,34 @@ impl AsRef<bool> for Value {
     }
 }
 
-impl std::ops::Add<&Value> for &Value {
-    type Output = Value;
-    fn add(self, rhs: &Value) -> Value {
-        match self {
+fn numeric_binary_op(lhs: &Value, rhs: &Value, op_name: &'static str, f: fn(&Integer, &Integer) -> Integer) -> Value {
+        match lhs {
             Value::Number(x) => match rhs {
                 Value::Number(y) => {
-                    return Value::Number(x + y);
+                    return Value::Number(f(x, y));
                 }
                 _ => (),
             },
             _ => (),
         }
         panic!(
-            "Attempt to add a {:?} with {:?}",
-            self.type_name(),
+            "Attempt to {} a {:?} with {:?}",
+            op_name,
+            lhs.type_name(),
             rhs.type_name()
         );
+}
+
+impl std::ops::Add<&Value> for &Value {
+    type Output = Value;
+    fn add(self, rhs: &Value) -> Value {
+        numeric_binary_op(self, rhs, "add", |x, y| x + y)
+    }
+}
+impl std::ops::Mul<&Value> for &Value {
+    type Output = Value;
+    fn mul(self, rhs: &Value) -> Value {
+        numeric_binary_op(self, rhs, "mul", |x, y| x * y)
     }
 }
 impl PartialOrd<Self> for Value {

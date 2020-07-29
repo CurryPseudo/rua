@@ -1,6 +1,7 @@
 use crate::*;
 use enum_as_inner::EnumAsInner;
 use std::collections::HashMap;
+use std::ops::Range;
 use std::sync::{Arc, Mutex};
 #[macro_use]
 mod lalr1;
@@ -12,14 +13,31 @@ enum AST {
     LocalVariable(String),
     LocalVariableDeclare(String, Box<AST>),
     Assign(Box<AST>, Box<AST>),
-    FunctionCall(String, Option<Box<AST>>),
+    FunctionCall(Box<AST>, Option<Box<AST>>),
     ParamList(Box<AST>, Box<AST>),
     Statements(Box<AST>, Box<AST>),
     BinaryOp(Token, Box<AST>, Box<AST>),
+    SingleOp(Token, Box<AST>),
     If(Box<AST>, Box<AST>),
     While(Box<AST>, Box<AST>),
     Table,
     Index(Box<AST>, Box<AST>),
+}
+
+impl AST {
+    pub fn is_test(&self) -> bool {
+        match self {
+            BinaryOp(token, _, _) => match token {
+                Token::EQUAL | Token::INEQUAL | Token::LESSTHAN => true,
+                _ => false,
+            },
+            SingleOp(token, _) => match token {
+                Token::NOT => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
 }
 use AST::*;
 parser! {
@@ -50,16 +68,26 @@ parser! {
 
     production!(
         Expression ->
-            right!(Expression + (EQUAL | INEQUAL | LESSTHAN) + Expression0 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
-            right!(Expression0)
+            right!(Expression + (EQUAL | INEQUAL | LESSTHAN) + ExpressionAdd => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(ExpressionAdd)
     )
     production!(
-        Expression0 ->
-            right!(Expression0, ADD, Expression1 => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
-            right!(Expression1)
+        ExpressionAdd ->
+            right!(ExpressionAdd, ADD, ExpressionMul => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(ExpressionMul)
     )
     production!(
-        Expression1 ->
+        ExpressionMul ->
+            right!(ExpressionMul, MUL, ExpressionNot => BinaryOp(token.get(0), ast.get(0).into(), ast.get(1).into())),
+            right!(ExpressionNot)
+    )
+    production!(
+        ExpressionNot ->
+            right!(NOT, ExpressionFinal => SingleOp(token.get(0), ast.get(0).into())),
+            right!(ExpressionFinal)
+    )
+    production!(
+        ExpressionFinal ->
             right!(FunctionCall => ast.get(0)),
             right!(TRUE => Literal(Value::Boolean(true))),
             right!(FALSE => Literal(Value::Boolean(false))),
@@ -72,17 +100,16 @@ parser! {
     production!(
         LeftVariable ->
             right!(ID => LocalVariable(token.get(0).into_id().unwrap())),
-            right!(LeftVariable, LEFT_SQUARE_BRACKET, Expression, RIGHT_SQUARE_BRACKET => Index(ast.get(0).into(), ast.get(1).into()))
+            right!(LeftVariable, LEFT_SQUARE_BRACKET, Expression, RIGHT_SQUARE_BRACKET => Index(ast.get(0).into(), ast.get(1).into())),
+            right!(LeftVariable, DOT, ID => Index(ast.get(0).into(), Box::new(Literal(Value::String(token.get(1).into_id().unwrap())))))
     )
     production!(
         FunctionCall ->
-            right!(ID, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
-              let name = token.get(0).into_id().unwrap();
-              FunctionCall (name, Some(ast.get(0).into()))
+            right!(LeftVariable, LEFT_BRACKET, ParamList, RIGHT_BRACKET => {
+              FunctionCall (ast.get(0).into(), Some(ast.get(1).into()))
             }),
-            right!(ID, LEFT_BRACKET, RIGHT_BRACKET => {
-              let name = token.get(0).into_id().unwrap();
-              FunctionCall (name, None)
+            right!(LeftVariable, LEFT_BRACKET, RIGHT_BRACKET => {
+              FunctionCall (ast.get(0).into(), None)
             })
 
     )
@@ -139,11 +166,11 @@ struct TempVariable {
 }
 
 impl TempVariable {
-    pub fn new(free_variable_index: Arc<Mutex<u32>>, r_index: u32) -> Self {
+    pub fn new(free_variable_index: Arc<Mutex<u32>>, r_index: u32, count: u32) -> Self {
         Self {
             free_variable_index,
             r_index,
-            count: 1,
+            count,
         }
     }
     pub fn r_index(&self) -> u32 {
@@ -170,29 +197,24 @@ pub struct FunctionStack {
 
 #[allow(unused_must_use)]
 impl FunctionStack {
-    fn inc_free_variable_index(&mut self) -> u32 {
+    fn inc_free_variable_index(&mut self, count: u32) -> u32 {
         let mut free_variable_index = self.free_variable_index.lock().unwrap();
         let index = *free_variable_index;
-        *free_variable_index = *free_variable_index + 1;
+        *free_variable_index = *free_variable_index + count;
         if *free_variable_index > self.variable_count {
             self.variable_count = *free_variable_index;
         }
         index
     }
-    fn allocate_temp_variable(&mut self) -> TempVariable {
-        let index = self.inc_free_variable_index();
-        TempVariable::new(self.free_variable_index.clone(), index)
-    }
-    fn append_temp_variable(&mut self, temp_variable: &mut TempVariable) {
-        self.inc_free_variable_index();
-        temp_variable.r_index = temp_variable.r_index + 1;
-        temp_variable.count = temp_variable.count + 1;
+    fn allocate_temp_variable(&mut self, count: u32) -> TempVariable {
+        let index = self.inc_free_variable_index(count);
+        TempVariable::new(self.free_variable_index.clone(), index, count)
     }
     fn get_variable_index(&self, variable: &str) -> Option<u32> {
         self.variable_map.get(variable).map(|x| *x)
     }
     fn add_variable(&mut self, name: String) -> u32 {
-        let index = self.inc_free_variable_index();
+        let index = self.inc_free_variable_index(1);
         self.variable_map.insert(name, index);
         index
     }
@@ -213,7 +235,7 @@ impl FunctionStack {
         if let Some(register) = free_register {
             Variable::new_r_register(register)
         } else {
-            Temp(self.allocate_temp_variable())
+            Temp(self.allocate_temp_variable(1))
         }
     }
     fn get_expression_rk_index(&mut self, free_register: Option<u32>, expression: AST) -> Variable {
@@ -228,14 +250,22 @@ impl FunctionStack {
                 let a = self.get_free_register_or_allocate(free_register);
                 let b = self.get_expression_r_index(None, *left);
                 let c = self.get_expression_rk_index(None, *right);
-                self.instructions.push(Instruction::GetTable(a.r_index(), b.r_index(), c.rk_index()));
+                self.instructions.push(Instruction::GetTable(
+                    a.r_index(),
+                    b.r_index(),
+                    c.rk_index(),
+                ));
                 a
             }
             LocalVariable(id) => {
                 if let Some(b) = self.get_variable_index(&id) {
                     Variable::new_r_register(b)
                 } else {
-                    panic!("Cant find symbol {}", id);
+                    let r = self.get_free_register_or_allocate(free_register);
+                    let k = self.get_constant_rk_index(Value::String(id));
+                    self.instructions
+                        .push(Instruction::GetTabUp(r.r_index(), 0, k));
+                    r
                 }
             }
             other => {
@@ -247,15 +277,18 @@ impl FunctionStack {
     }
     fn test_expression(
         &mut self,
+        is_true: bool,
         free_register: Option<u32>,
         expression: AST,
         jmp_length: i32,
     ) -> Box<dyn Fn(&mut FunctionStack)> {
+        let is_true_value = if is_true {0} else {1};
+        let reverse_value = 1 - is_true_value;
         let mut straight_test = |expression| {
             let register = self.get_free_register_or_allocate(free_register);
             self.set_expression_to_register(register.r_index(), expression);
             self.instructions
-                .push(Instruction::Test(register.r_index(), 0));
+                .push(Instruction::Test(register.r_index(), is_true_value));
         };
         match expression {
             BinaryOp(op, left, right) => match op {
@@ -265,28 +298,32 @@ impl FunctionStack {
                     match op {
                         Token::EQUAL => {
                             self.instructions
-                                .push(Instruction::Eq(0, b.rk_index(), c.rk_index()))
+                                .push(Instruction::Eq(is_true_value, b.rk_index(), c.rk_index()))
                         }
                         Token::INEQUAL => {
                             self.instructions
-                                .push(Instruction::Eq(1, b.rk_index(), c.rk_index()))
+                                .push(Instruction::Eq(reverse_value, b.rk_index(), c.rk_index()))
                         }
                         Token::LESSTHAN => {
                             self.instructions
-                                .push(Instruction::Lt(0, b.rk_index(), c.rk_index()))
+                                .push(Instruction::Lt(is_true_value, b.rk_index(), c.rk_index()))
                         }
                         _ => unreachable!(),
                     }
                 }
                 _ => straight_test(BinaryOp(op, left, right)),
             },
+            SingleOp(op, right) => match op {
+                Token::NOT => return self.test_expression(!is_true, free_register, *right, jmp_length),
+                _ => straight_test(SingleOp(op, right)),
+            },
             _ => straight_test(expression),
         }
         let current = self.instructions.len();
-        self.instructions.push(Instruction::JMP(jmp_length));
+        self.instructions.push(Instruction::Jmp(jmp_length));
         Box::new(move |stack| {
             let jmp_to = stack.instructions.len();
-            stack.instructions[current] = Instruction::JMP((jmp_to - (current + 1)) as i32);
+            stack.instructions[current] = Instruction::Jmp((jmp_to - (current + 1)) as i32);
         })
     }
     fn set_expression_to_register(&mut self, register: u32, expression: AST) {
@@ -306,58 +343,97 @@ impl FunctionStack {
                 if let Some(b) = self.get_variable_index(&id) {
                     self.instructions.push(Instruction::Move(register, b))
                 } else {
-                    panic!("Cant find symbol {}", id);
+                    let c = self.get_constant_rk_index(Value::String(id));
+                    self.instructions.push(Instruction::GetTabUp(register, 0, c));
                 }
             }
-            BinaryOp(op, left, right) => match op {
-                Token::ADD => {
-                    let b = self.get_expression_rk_index(Some(register), *left);
-                    let c = self.get_expression_rk_index(None, *right);
-                    self.instructions
-                        .push(Instruction::ADD(register, b.rk_index(), c.rk_index()))
-                }
-                Token::EQUAL | Token::INEQUAL | Token::LESSTHAN => {
-                    self.test_expression(Some(register), BinaryOp(op, left, right), 1);
-                    self.instructions
-                        .push(Instruction::LoadBool(register, 1, 1));
-                    self.instructions
-                        .push(Instruction::LoadBool(register, 0, 0));
-                }
-                _ => unreachable!(),
-            },
-            _ => {
-                panic!();
+            FunctionCall(func, param_list) => {
+                self.get_function_call(func, param_list, Some(register..register + 1));
+            }
+            expression if expression.is_test() => {
+                self.test_expression(true, Some(register), expression, 1);
+                self.instructions
+                    .push(Instruction::LoadBool(register, 1, 1));
+                self.instructions
+                    .push(Instruction::LoadBool(register, 0, 0));
+            }
+            BinaryOp(op, left, right) => {
+                let b = self.get_expression_rk_index(Some(register), *left);
+                let c = self.get_expression_rk_index(None, *right);
+                self.instructions.push(match op {
+                    Token::ADD => Instruction::Add(register, b.rk_index(), c.rk_index()),
+                    Token::MUL => Instruction::Mul(register, b.rk_index(), c.rk_index()),
+                    _ => unreachable!(),
+                })
+            }
+            other => {
+                panic!("not solve AST {:?}", other);
             }
         }
     }
-    fn add_param(&mut self, temp_variable: &mut TempVariable, ast: AST) {
-        match ast {
-            ParamList(left, right) => {
-                self.add_param(temp_variable, *left);
-                self.append_temp_variable(temp_variable);
-                self.add_param(temp_variable, *right);
+    fn get_function_call(
+        &mut self,
+        func: Box<AST>,
+        param_list: Option<Box<AST>>,
+        ret_range: Option<Range<u32>>,
+    ) {
+        let count = if let Some(ret_range) = &ret_range {
+            ret_range.end - ret_range.start
+        } else {
+            0
+        };
+
+        let param_list = if let Some(param_list) = param_list {
+            flatten_binary_ast(param_list, |ast| {
+                if let ParamList(left, right) = *ast {
+                    Err((left, right))
+                } else {
+                    Ok(ast)
+                }
+            })
+        } else {
+            Vec::new()
+        };
+
+        let len = param_list.len() as u32;
+        if len + 1 > count {
+            let temp_variable = self.allocate_temp_variable(len + 1);
+            self.set_expression_to_register(temp_variable.r_index(), *func);
+            for (i, param) in param_list.into_iter().enumerate() {
+                self.set_expression_to_register(
+                    temp_variable.r_index() + i as u32 + 1,
+                    *param,
+                );
             }
-            other => {
-                self.set_expression_to_register(temp_variable.r_index(), other);
+            self.instructions.push(Instruction::Call(
+                temp_variable.r_index(),
+                temp_variable.count,
+                count + 1,
+            ));
+            if count > 0 {
+                let ret_begin = ret_range.unwrap().start;
+                for i in 0..count {
+                    self.instructions.push(Instruction::Move(ret_begin + i, temp_variable.r_index() + i))
+                }
             }
+        } else {
+            let ret_begin = ret_range.unwrap().start;
+            self.set_expression_to_register(ret_begin, *func);
+            for (i, param) in param_list.into_iter().enumerate() {
+                self.set_expression_to_register(
+                    ret_begin + i as u32 + 1,
+                    *param,
+                );
+            }
+            self.instructions
+                .push(Instruction::Call(ret_begin, len + 1, count + 1));
         }
     }
     fn add(&mut self, ast: AST) {
         use AST::*;
         match ast {
-            FunctionCall(name, param_list) => {
-                let name = Value::String(String::from(name));
-                let k0 = self.get_constant_rk_index(name) as i32;
-                let mut temp_variable = self.allocate_temp_variable();
-                let call_index = temp_variable.r_index();
-                self.instructions
-                    .push(Instruction::GetTabUp(call_index, 0, k0));
-                if let Some(param_list) = param_list {
-                    self.append_temp_variable(&mut temp_variable);
-                    self.add_param(&mut temp_variable, *param_list);
-                }
-                self.instructions
-                    .push(Instruction::Call(call_index, temp_variable.count, 1));
+            FunctionCall(func, param_list) => {
+                self.get_function_call(func, param_list, None);
             }
             Statements(left, right) => {
                 self.add(*left);
@@ -376,26 +452,40 @@ impl FunctionStack {
                     let a = self.get_expression_r_index(None, *index_left);
                     let b = self.get_expression_rk_index(None, *index_right);
                     let c = self.get_expression_rk_index(None, *right);
-                    self.instructions.push(Instruction::SetTable(a.r_index(), b.rk_index(), c.rk_index()));
+                    self.instructions.push(Instruction::SetTable(
+                        a.r_index(),
+                        b.rk_index(),
+                        c.rk_index(),
+                    ));
                 }
                 _ => unreachable!(),
             },
             If(expression, then) => {
-                let set_jmp_to = self.test_expression(None, *expression, 1);
+                let set_jmp_to = self.test_expression(true, None, *expression, 1);
                 self.add(*then);
                 set_jmp_to(self);
             }
             While(expression, then) => {
                 let pos = self.instructions.len();
-                let set_jmp_to = self.test_expression(None, *expression, 1);
+                let set_jmp_to = self.test_expression(true, None, *expression, 1);
                 self.add(*then);
-                self.instructions.push(Instruction::JMP(
+                self.instructions.push(Instruction::Jmp(
                     pos as i32 - self.instructions.len() as i32 - 1,
                 ));
                 set_jmp_to(self);
             }
             _ => unimplemented!(),
         }
+    }
+}
+fn flatten_binary_ast<T>(t: T, f: fn(T) -> Result<T, (T, T)>) -> Vec<T> {
+    match f(t) {
+        Err((left, right)) => {
+            let mut r = flatten_binary_ast(left, f.clone());
+            r.append(&mut flatten_binary_ast(right, f));
+            r
+        }
+        Ok(t) => vec![t],
     }
 }
 pub fn add_code(input: &str, vm: &mut VM) {

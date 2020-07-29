@@ -2,8 +2,11 @@
 extern crate log;
 #[macro_use]
 extern crate lazy_static;
-mod builtin_functions;
-pub use builtin_functions::*;
+#[macro_use]
+mod foreign;
+pub use foreign::*;
+mod builtin;
+pub use builtin::*;
 mod vm;
 pub use vm::*;
 mod parser;
@@ -17,8 +20,8 @@ fn main() {
     use std::fs::File;
     use std::io::prelude::*;
     let _ = pretty_env_logger::init();
-    let mut vm = VM::default();
-    vm.import_builtin_function();
+    let mut vm = VM::new();
+    vm.import_builtin();
     let args: Vec<_> = std::env::args().collect();
     let lua_file_name = &args[1];
     let mut lua_file = File::open(lua_file_name).unwrap();

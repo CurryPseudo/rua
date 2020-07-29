@@ -1,8 +1,9 @@
 use crate::*;
+use crate::Foreign;
 
 lazy_static! {
-    pub static ref FUNCTIONS: Vec<ExportLuaFunction> = vec![
-        ExportLuaFunction::new("print", |args| {
+    pub static ref BUILTIN: Vec<Foreign> = vec![
+        foreign!(print = |args| {
             let mut to_print = String::new();
             if !args.is_empty() {
                 to_print.push_str(args[0].to_string().as_str())
@@ -13,11 +14,16 @@ lazy_static! {
             }
             println!("{}", to_print);
             Vec::new()
+        }),
+        foreign!(math.sqrt = |args| {
+            let f = args[0].as_number() as Float;
+            let r = f.sqrt() as Integer;
+            vec![Value::Number(r)]
         })
     ];
 }
 
-pub fn get_builtin_functions() -> &'static Vec<ExportLuaFunction> {
-    &FUNCTIONS
+pub fn get_builtins() -> &'static Vec<Foreign> {
+    &BUILTIN
 }
 
