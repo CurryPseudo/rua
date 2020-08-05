@@ -62,7 +62,7 @@ pub enum Token {
     #[regex(r"--.*", logos::skip)]
     COMMENT,
     #[error]
-    #[regex(r"[ \t\n\f]+", logos::skip)]
+    #[regex(r"[ \t\n\f\r]+", logos::skip)]
     ERROR
 }
 
