@@ -663,7 +663,7 @@ macro_rules! parser {
                 lalr1::Grammar::new(vec![$($product_macro!($tokens_name, $tokens_type, $ast_name, $ast_type, $args)),+])
             };
         }
-        fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
+        pub fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
             GRAMMAR.parse(tokens)
         }
     };

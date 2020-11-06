@@ -1,21 +1,24 @@
+use std::{
+    fmt::Display,
+    hash::{Hash, Hasher},
+};
+
 use crate::*;
-use std::fmt::*;
-use std::hash::*;
 
 #[derive(Clone)]
 pub struct ExportLuaFunction {
     name: &'static str,
-    func: fn(&[Value]) -> Vec<Value>,
+    func: fn(&[Value]) -> Result<Vec<Value>, RuntimeError>,
 }
 
 impl ExportLuaFunction {
-    pub fn new(name: &'static str, func: fn(&[Value]) -> Vec<Value>) -> Self {
+    pub fn new(name: &'static str, func: fn(&[Value]) -> Result<Vec<Value>, RuntimeError>) -> Self {
         Self { name, func }
     }
     pub fn name(&self) -> &'static str {
         self.name
     }
-    pub fn evaluate(&self, args: &[Value]) -> Vec<Value> {
+    pub fn evaluate(&self, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
         (self.func)(args)
     }
 }
@@ -28,6 +31,11 @@ impl PartialEq for ExportLuaFunction {
 
 impl Eq for ExportLuaFunction {}
 
+impl std::fmt::Display for ExportLuaFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
 impl std::fmt::Debug for ExportLuaFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
@@ -39,15 +47,22 @@ impl std::hash::Hash for ExportLuaFunction {
         self.name.hash(state);
     }
 }
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Value {
     Number(Integer),
     String(String),
     Boolean(bool),
     LuaFunction(ExportLuaFunction),
-    Table(usize),
+    Table(*mut Table),
     Nil,
 }
+
+impl Default for Value {
+    fn default() -> Self {
+        Self::Nil
+    }
+}
+
 impl Value {
     pub fn is_nil(&self) -> bool {
         match self {
@@ -65,29 +80,41 @@ impl Value {
             Self::Nil => "nil",
         }
     }
-    pub fn as_number(&self) -> Integer {
+    pub fn expect_number(self) -> Result<Integer, RuntimeError> {
         match self {
-            Self::Number(n) => *n,
-            _ => panic!("Attempt to do numberic operation on {}", self.type_name())
+            Self::Number(n) => Ok(n),
+            _ => Err(RuntimeError::TypeError(self, "number")),
+        }
+    }
+    pub fn expect_function(self) -> Result<ExportLuaFunction, RuntimeError> {
+        match self {
+            Self::LuaFunction(f) => Ok(f),
+            _ => Err(RuntimeError::TypeError(self, "function")),
+        }
+    }
+    pub fn expect_table<'a>(self) -> Result<&'a mut Table, RuntimeError> {
+        match self {
+            Self::Table(t) => Ok(unsafe { t.as_mut() }.unwrap()),
+            _ => Err(RuntimeError::TypeError(self, "table")),
         }
     }
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Number(x) => x.to_string(),
-            Self::String(s) => s.clone(),
+            Self::Number(x) => write!(f, "{}", x),
+            Self::String(s) => write!(f, "{}", s),
             Self::Boolean(b) => {
                 if *b {
-                    "true".to_string()
+                    write!(f, "true")
                 } else {
-                    "false".to_string()
+                    write!(f, "false")
                 }
             }
-            Self::Table(id) => format!("table: {}", id),
-            Self::Nil => "nil".to_string(),
-            Self::LuaFunction(_) => "function".to_string(),
+            Self::Table(table_ptr) => write!(f, "table {}", *table_ptr as usize),
+            Self::Nil => write!(f, "nil"),
+            Self::LuaFunction(func) => write!(f, "function {}", func),
         }
     }
 }
@@ -103,22 +130,27 @@ impl AsRef<bool> for Value {
     }
 }
 
-fn numeric_binary_op(lhs: &Value, rhs: &Value, op_name: &'static str, f: fn(&Integer, &Integer) -> Integer) -> Value {
-        match lhs {
-            Value::Number(x) => match rhs {
-                Value::Number(y) => {
-                    return Value::Number(f(x, y));
-                }
-                _ => (),
-            },
+fn numeric_binary_op(
+    lhs: &Value,
+    rhs: &Value,
+    op_name: &'static str,
+    f: fn(&Integer, &Integer) -> Integer,
+) -> Value {
+    match lhs {
+        Value::Number(x) => match rhs {
+            Value::Number(y) => {
+                return Value::Number(f(x, y));
+            }
             _ => (),
-        }
-        panic!(
-            "Attempt to {} a {:?} with {:?}",
-            op_name,
-            lhs.type_name(),
-            rhs.type_name()
-        );
+        },
+        _ => (),
+    }
+    panic!(
+        "Attempt to {} a {:?} with {:?}",
+        op_name,
+        lhs.type_name(),
+        rhs.type_name()
+    );
 }
 
 impl std::ops::Add<&Value> for &Value {

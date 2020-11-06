@@ -1,14 +1,13 @@
-use crate::*;
 use enum_as_inner::EnumAsInner;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
 #[macro_use]
 mod lalr1;
-use crate::lexer::*;
+use crate::{lexer::*, Instruction, Value};
 use lalr1::ToTerminalName;
 #[derive(Debug, EnumAsInner)]
-enum AST {
+pub enum AST {
     Literal(Value),
     LocalVariable(String),
     LocalVariableDeclare(String, Box<AST>),
@@ -186,7 +185,7 @@ impl Drop for TempVariable {
 }
 
 #[derive(Default, Debug)]
-pub struct FunctionStack {
+pub struct FunctionParseResult {
     pub variable_count: u32,
     free_variable_index: Arc<Mutex<u32>>,
     pub constants: Vec<Value>,
@@ -196,7 +195,7 @@ pub struct FunctionStack {
 }
 
 #[allow(unused_must_use)]
-impl FunctionStack {
+impl FunctionParseResult {
     fn inc_free_variable_index(&mut self, count: u32) -> u32 {
         let mut free_variable_index = self.free_variable_index.lock().unwrap();
         let index = *free_variable_index;
@@ -281,8 +280,8 @@ impl FunctionStack {
         free_register: Option<u32>,
         expression: AST,
         jmp_length: i32,
-    ) -> Box<dyn Fn(&mut FunctionStack)> {
-        let is_true_value = if is_true {0} else {1};
+    ) -> Box<dyn Fn(&mut FunctionParseResult)> {
+        let is_true_value = if is_true { 0 } else { 1 };
         let reverse_value = 1 - is_true_value;
         let mut straight_test = |expression| {
             let register = self.get_free_register_or_allocate(free_register);
@@ -296,25 +295,30 @@ impl FunctionStack {
                     let b = self.get_expression_rk_index(free_register, *left);
                     let c = self.get_expression_rk_index(None, *right);
                     match op {
-                        Token::EQUAL => {
-                            self.instructions
-                                .push(Instruction::Eq(is_true_value, b.rk_index(), c.rk_index()))
-                        }
-                        Token::INEQUAL => {
-                            self.instructions
-                                .push(Instruction::Eq(reverse_value, b.rk_index(), c.rk_index()))
-                        }
-                        Token::LESSTHAN => {
-                            self.instructions
-                                .push(Instruction::Lt(is_true_value, b.rk_index(), c.rk_index()))
-                        }
+                        Token::EQUAL => self.instructions.push(Instruction::Eq(
+                            is_true_value,
+                            b.rk_index(),
+                            c.rk_index(),
+                        )),
+                        Token::INEQUAL => self.instructions.push(Instruction::Eq(
+                            reverse_value,
+                            b.rk_index(),
+                            c.rk_index(),
+                        )),
+                        Token::LESSTHAN => self.instructions.push(Instruction::Lt(
+                            is_true_value,
+                            b.rk_index(),
+                            c.rk_index(),
+                        )),
                         _ => unreachable!(),
                     }
                 }
                 _ => straight_test(BinaryOp(op, left, right)),
             },
             SingleOp(op, right) => match op {
-                Token::NOT => return self.test_expression(!is_true, free_register, *right, jmp_length),
+                Token::NOT => {
+                    return self.test_expression(!is_true, free_register, *right, jmp_length)
+                }
                 _ => straight_test(SingleOp(op, right)),
             },
             _ => straight_test(expression),
@@ -344,7 +348,8 @@ impl FunctionStack {
                     self.instructions.push(Instruction::Move(register, b))
                 } else {
                     let c = self.get_constant_rk_index(Value::String(id));
-                    self.instructions.push(Instruction::GetTabUp(register, 0, c));
+                    self.instructions
+                        .push(Instruction::GetTabUp(register, 0, c));
                 }
             }
             FunctionCall(func, param_list) => {
@@ -400,10 +405,7 @@ impl FunctionStack {
             let temp_variable = self.allocate_temp_variable(len + 1);
             self.set_expression_to_register(temp_variable.r_index(), *func);
             for (i, param) in param_list.into_iter().enumerate() {
-                self.set_expression_to_register(
-                    temp_variable.r_index() + i as u32 + 1,
-                    *param,
-                );
+                self.set_expression_to_register(temp_variable.r_index() + i as u32 + 1, *param);
             }
             self.instructions.push(Instruction::Call(
                 temp_variable.r_index(),
@@ -413,23 +415,23 @@ impl FunctionStack {
             if count > 0 {
                 let ret_begin = ret_range.unwrap().start;
                 for i in 0..count {
-                    self.instructions.push(Instruction::Move(ret_begin + i, temp_variable.r_index() + i))
+                    self.instructions.push(Instruction::Move(
+                        ret_begin + i,
+                        temp_variable.r_index() + i,
+                    ))
                 }
             }
         } else {
             let ret_begin = ret_range.unwrap().start;
             self.set_expression_to_register(ret_begin, *func);
             for (i, param) in param_list.into_iter().enumerate() {
-                self.set_expression_to_register(
-                    ret_begin + i as u32 + 1,
-                    *param,
-                );
+                self.set_expression_to_register(ret_begin + i as u32 + 1, *param);
             }
             self.instructions
                 .push(Instruction::Call(ret_begin, len + 1, count + 1));
         }
     }
-    fn add(&mut self, ast: AST) {
+    pub fn add(&mut self, ast: AST) {
         use AST::*;
         match ast {
             FunctionCall(func, param_list) => {
@@ -487,12 +489,4 @@ fn flatten_binary_ast<T>(t: T, f: fn(T) -> Result<T, (T, T)>) -> Vec<T> {
         }
         Ok(t) => vec![t],
     }
-}
-pub fn add_code(input: &str, vm: &mut VM) {
-    let mut stack = FunctionStack::default();
-    let tokens = Token::lexer(input).collect();
-    info!("{:?}", tokens);
-    let ast = lua_parse(tokens);
-    stack.add(ast);
-    vm.add_function(stack);
 }
