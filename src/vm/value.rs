@@ -8,17 +8,20 @@ use crate::*;
 #[derive(Clone)]
 pub struct ExportLuaFunction {
     name: &'static str,
-    func: fn(&[Value]) -> Result<Vec<Value>, RuntimeError>,
+    func: fn(Vec<Value>) -> Result<Vec<Value>, RuntimeError>,
 }
 
 impl ExportLuaFunction {
-    pub fn new(name: &'static str, func: fn(&[Value]) -> Result<Vec<Value>, RuntimeError>) -> Self {
+    pub fn new(
+        name: &'static str,
+        func: fn(Vec<Value>) -> Result<Vec<Value>, RuntimeError>,
+    ) -> Self {
         Self { name, func }
     }
     pub fn name(&self) -> &'static str {
         self.name
     }
-    pub fn evaluate(&self, args: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+    pub fn evaluate(&self, args: Vec<Value>) -> Result<Vec<Value>, RuntimeError> {
         (self.func)(args)
     }
 }

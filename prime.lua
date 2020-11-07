@@ -1,4 +1,4 @@
-local no = 1000
+local no = 100000
 local not_primes = {}
 local i = 2
 while i < no do

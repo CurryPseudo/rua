@@ -1,7 +1,6 @@
 use enum_as_inner::EnumAsInner;
-use std::collections::HashMap;
-use std::ops::Range;
-use std::sync::{Arc, Mutex};
+use std::{cell::RefCell, collections::HashMap, rc::Weak};
+use std::{ops::Range, rc::Rc};
 #[macro_use]
 mod lalr1;
 use crate::{lexer::*, Instruction, Value};
@@ -159,15 +158,15 @@ impl Variable {
 use Variable::*;
 
 struct TempVariable {
-    free_variable_index: Arc<Mutex<u32>>,
+    free_variable_index: Weak<RefCell<u32>>,
     r_index: u32,
     count: u32,
 }
 
 impl TempVariable {
-    pub fn new(free_variable_index: Arc<Mutex<u32>>, r_index: u32, count: u32) -> Self {
+    pub fn new(free_variable_index: &Rc<RefCell<u32>>, r_index: u32, count: u32) -> Self {
         Self {
-            free_variable_index,
+            free_variable_index: Rc::downgrade(free_variable_index),
             r_index,
             count,
         }
@@ -179,7 +178,8 @@ impl TempVariable {
 
 impl Drop for TempVariable {
     fn drop(&mut self) {
-        let mut free_variable_index = self.free_variable_index.lock().unwrap();
+        let rc = self.free_variable_index.upgrade().unwrap();
+        let mut free_variable_index = rc.borrow_mut();
         *free_variable_index = *free_variable_index - self.count;
     }
 }
@@ -187,7 +187,7 @@ impl Drop for TempVariable {
 #[derive(Default, Debug)]
 pub struct FunctionParseResult {
     pub variable_count: u32,
-    free_variable_index: Arc<Mutex<u32>>,
+    free_variable_index: Rc<RefCell<u32>>,
     pub constants: Vec<Value>,
     pub instructions: Vec<Instruction>,
     constant_map: HashMap<Value, u32>,
@@ -197,7 +197,7 @@ pub struct FunctionParseResult {
 #[allow(unused_must_use)]
 impl FunctionParseResult {
     fn inc_free_variable_index(&mut self, count: u32) -> u32 {
-        let mut free_variable_index = self.free_variable_index.lock().unwrap();
+        let mut free_variable_index = self.free_variable_index.borrow_mut();
         let index = *free_variable_index;
         *free_variable_index = *free_variable_index + count;
         if *free_variable_index > self.variable_count {
@@ -207,7 +207,7 @@ impl FunctionParseResult {
     }
     fn allocate_temp_variable(&mut self, count: u32) -> TempVariable {
         let index = self.inc_free_variable_index(count);
-        TempVariable::new(self.free_variable_index.clone(), index, count)
+        TempVariable::new(&self.free_variable_index, index, count)
     }
     fn get_variable_index(&self, variable: &str) -> Option<u32> {
         self.variable_map.get(variable).map(|x| *x)

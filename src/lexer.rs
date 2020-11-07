@@ -1,8 +1,8 @@
 use crate::*;
+use enum_as_inner::EnumAsInner;
 use logos::Lexer;
 pub use logos::Logos;
-use enum_as_inner::EnumAsInner;
-use strum_macros::{IntoStaticStr, EnumVariantNames};
+use strum_macros::{EnumVariantNames, IntoStaticStr};
 
 #[derive(Logos, Debug, PartialEq, EnumAsInner, IntoStaticStr, EnumVariantNames)]
 #[allow(non_camel_case_types)]
@@ -63,7 +63,7 @@ pub enum Token {
     COMMENT,
     #[error]
     #[regex(r"[ \t\n\f\r]+", logos::skip)]
-    ERROR
+    ERROR,
 }
 
 fn same(lex: &mut Lexer<Token>) -> String {

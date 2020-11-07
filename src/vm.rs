@@ -99,7 +99,12 @@ impl CallInfo {
             }
             Instruction::Call(a, b, c) => {
                 let func = self.r_register(a).clone().expect_function()?;
-                let results = func.evaluate(self.r_registers(a + 1, b - 1))?;
+                let results = func.evaluate(
+                    self.r_registers(a + 1, b - 1)
+                        .into_iter()
+                        .map(Clone::clone)
+                        .collect(),
+                )?;
                 let mut i = 0;
                 for result in results {
                     if i >= c - 1 {
