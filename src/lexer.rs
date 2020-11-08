@@ -1,10 +1,9 @@
 use crate::*;
-use enum_as_inner::EnumAsInner;
 use logos::Lexer;
 pub use logos::Logos;
 use strum_macros::{EnumVariantNames, IntoStaticStr};
 
-#[derive(Logos, Debug, PartialEq, EnumAsInner, IntoStaticStr, EnumVariantNames)]
+#[derive(Logos, Debug, PartialEq, IntoStaticStr, EnumVariantNames)]
 #[allow(non_camel_case_types)]
 pub enum Token {
     #[regex(r"[a-zA-Z][a-zA-Z0-9_]*", same)]

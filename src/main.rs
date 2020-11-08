@@ -3,6 +3,8 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
+extern crate inner;
+#[macro_use]
 mod foreign;
 pub use foreign::*;
 mod vm;
@@ -25,11 +27,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut lua_file = File::open(lua_file_name).unwrap();
     let mut lua_content = String::new();
     lua_file.read_to_string(&mut lua_content).unwrap();
-    let mut stack = FunctionParseResult::default();
+    let mut stack = FunctionCompiler::default();
     let tokens = Token::lexer(&lua_content).collect();
     info!("{:?}", tokens);
-    let ast = lua_parse(tokens);
-    stack.add(ast);
+    let ast = lua_parse(tokens)?;
+    stack.push_statements(ast.into_sub()?);
     {
         vm.add_main_function(stack.into());
     }

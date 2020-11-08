@@ -44,13 +44,13 @@ enum Action {
 }
 use Action::*;
 
-pub type ASTBuilder<T, A> = fn(SymbolVec<T>, SymbolVec<A>) -> A;
-pub struct Grammar<T, A> {
+pub type ASTBuilder<T, A, E> = fn(SymbolVec<T>, SymbolVec<A>) -> Result<A, E>;
+pub struct Grammar<T, A, E> {
     terminal_map: HashMap<&'static str, usize>,
     action: Vec<Vec<Action>>,
     goto: Vec<Vec<Option<usize>>>,
     debug_info: GrammarDebugInfo,
-    ast_builders: Vec<ASTBuilder<T, A>>,
+    ast_builders: Vec<ASTBuilder<T, A, E>>,
 }
 
 #[derive(Debug)]
@@ -134,9 +134,9 @@ impl Item {
     }
 }
 
-impl<T: ToTerminalName, A> Grammar<T, A> {
+impl<T: ToTerminalName, A, E> Grammar<T, A, E> {
     pub fn new(
-        unmerged_str_productions: Vec<Vec<(&'static str, Vec<&'static str>, ASTBuilder<T, A>)>>,
+        unmerged_str_productions: Vec<Vec<(&'static str, Vec<&'static str>, ASTBuilder<T, A, E>)>>,
     ) -> Self {
         let mut productions = Vec::new();
         let mut terminal_map = HashMap::new();
@@ -535,7 +535,7 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
             ast_builders,
         }
     }
-    pub fn parse(&self, mut tokens: VecDeque<T>) -> A {
+    pub fn parse(&self, mut tokens: VecDeque<T>) -> Result<A, E> {
         let mut stack = vec![0];
         let mut token_stack = Vec::new();
         let mut ast_stack = Vec::new();
@@ -567,14 +567,14 @@ impl<T: ToTerminalName, A> Grammar<T, A> {
                         .drain(ast_stack.len() - non_terminal_count..ast_stack.len())
                         .collect();
                     let current = *stack.last().unwrap();
-                    let new_ast = self.ast_builders[production_index - 1](tokens, ast);
+                    let new_ast = self.ast_builders[production_index - 1](tokens, ast)?;
                     ast_stack.push(new_ast);
                     let next = self.goto[current][left].unwrap();
                     stack.push(next);
                     debug!("push {}", next);
                 }
                 Finish => {
-                    return ast_stack.pop().unwrap();
+                    return Ok(ast_stack.pop().unwrap());
                 }
                 Error => {
                     let state = *stack.last().unwrap();
@@ -614,12 +614,12 @@ struct Production {
     right: Vec<Symbol>,
 }
 macro_rules! right {
-    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($pre:tt),* + ($($($choose:tt),+)|+) + $($after:tt),* => $ast_builder:expr)) => {
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, $error_type:ty, ($($pre:tt),* + ($($($choose:tt),+)|+) + $($after:tt),* => $ast_builder:expr)) => {
         {
             let pre = vec![$(stringify!($pre)),+];
             let after = vec![$(stringify!($after)),+];
             let chooses = vec![$(vec![$(stringify!($choose)),+]),+];
-            let mut r: Vec<(_, lalr1::ASTBuilder<$tokens_type, $ast_type>)> = Vec::new();
+            let mut r: Vec<(_, lalr1::ASTBuilder<$tokens_type, $ast_type, $error_type>)> = Vec::new();
             for mut choose in chooses {
                 let mut this_pre = pre.clone();
                 let mut this_after = after.clone();
@@ -630,19 +630,19 @@ macro_rules! right {
             r
         }
     };
-    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($right:tt),+ => $ast_builder:expr)) => {
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, $error_type:ty, ($($right:tt),+ => $ast_builder:expr)) => {
         vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_builder)]
     };
-    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($($right:tt),+)) => {
-        vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| $ast_name.get(0))]
+    ($tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, $error_type:ty, ($($right:tt),+)) => {
+        vec![(vec![$(stringify!($right)),+], |mut $tokens_name: lalr1::SymbolVec<$tokens_type>, mut $ast_name: lalr1::SymbolVec<$ast_type>| Ok($ast_name.get(0)))]
     };
 }
 macro_rules! production {
-    {$tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, ($left:tt -> $($right:ident!$args:tt),+)} => {
+    {$tokens_name:ident, $tokens_type:ty, $ast_name:ident, $ast_type:ty, $error_type:ty, ($left:tt -> $($right:ident!$args:tt),+)} => {
         {
             let mut r = Vec::new();
             $(
-                let one: Vec<(_, lalr1::ASTBuilder<$tokens_type, $ast_type>)> = $right!($tokens_name, $tokens_type, $ast_name, $ast_type, $args);
+                let one: Vec<(_, lalr1::ASTBuilder<$tokens_type, $ast_type, $error_type>)> = $right!($tokens_name, $tokens_type, $ast_name, $ast_type, $error_type, $args);
                 for (rights, ast_builder) in one {
                     r.push((stringify!($left), rights, ast_builder));
                 }
@@ -654,16 +654,16 @@ macro_rules! production {
 #[allow(unused_macros)]
 macro_rules! parser {
     {
-     $parser_name:ident = |$tokens_name:ident: $tokens_type:ty, $ast_name:ident: $ast_type:ty| $($product_macro:ident!$args:tt)+
+     $parser_name:ident = |$tokens_name:ident: $tokens_type:ty, $ast_name:ident: $ast_type:ty, $error_type:ty| $($product_macro:ident!$args:tt)+
     } => {
         lazy_static! {
-            static ref GRAMMAR: lalr1::Grammar<$tokens_type, $ast_type> = {
+            static ref GRAMMAR: lalr1::Grammar<$tokens_type, $ast_type, $error_type> = {
                 #[allow(unused_mut)]
                 #[allow(unused_variables)]
-                lalr1::Grammar::new(vec![$($product_macro!($tokens_name, $tokens_type, $ast_name, $ast_type, $args)),+])
+                lalr1::Grammar::new(vec![$($product_macro!($tokens_name, $tokens_type, $ast_name, $ast_type, $error_type, $args)),+])
             };
         }
-        pub fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> $ast_type {
+        pub fn $parser_name(tokens: std::collections::VecDeque<$tokens_type>) -> Result<$ast_type, $error_type> {
             GRAMMAR.parse(tokens)
         }
     };

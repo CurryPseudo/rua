@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use crate::ConstantValue::*;
 use crate::Value;
+use crate::Value::*;
 
 #[derive(Default, Debug)]
 pub struct GCEnv {
@@ -9,7 +11,7 @@ pub struct GCEnv {
 impl GCEnv {
     pub fn new_table(&mut self) -> Value {
         self.tables.push(Table::new());
-        Value::Table(self.tables.last_mut().unwrap())
+        Value::Table(self.tables.last_mut().unwrap().into())
     }
 }
 
@@ -23,11 +25,11 @@ impl Table {
         if let Some(value) = self.0.get(value) {
             value
         } else {
-            &Value::Nil
+            &Constant(Nil)
         }
     }
     pub fn set(&mut self, key: Value, value: Value) {
-        if let Value::Nil = value {
+        if let Constant(Nil) = value {
             self.0.remove(&key);
         } else {
             self.0.insert(key, value);

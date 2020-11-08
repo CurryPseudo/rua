@@ -3,6 +3,7 @@ mod value;
 pub use table::*;
 pub use value::*;
 
+use crate::ConstantValue::*;
 use crate::*;
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, iter::once, rc::Rc};
 use thiserror::Error;
@@ -46,11 +47,11 @@ pub struct VM {
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     register_count: usize,
-    constants: Vec<Value>,
+    constants: Vec<ConstantValue>,
     instructions: Vec<Instruction>,
 }
-impl From<FunctionParseResult> for FunctionInfo {
-    fn from(function_stack: FunctionParseResult) -> Self {
+impl From<FunctionCompiler> for FunctionInfo {
+    fn from(function_stack: FunctionCompiler) -> Self {
         FunctionInfo {
             register_count: function_stack.variable_count as usize,
             constants: function_stack.constants,
@@ -74,7 +75,7 @@ impl CallInfo {
     ) -> Self {
         Self {
             pc: 0,
-            registers: vec![Value::Nil; function_info.register_count],
+            registers: vec![Nil.into(); function_info.register_count],
             up_values: up_values.collect(),
             function_info,
             gc_env,
@@ -91,11 +92,11 @@ impl CallInfo {
                     .up_value(b)
                     .clone()
                     .expect_table()?
-                    .get(self.rk_register(c))
+                    .get(&self.rk_register(c))
                     .clone();
             }
             Instruction::LoadK(a, bx) => {
-                *self.r_register_mut(a) = self.k_register(bx).clone();
+                *self.r_register_mut(a) = self.k_register(bx).clone().into();
             }
             Instruction::Call(a, b, c) => {
                 let func = self.r_register(a).clone().expect_function()?;
@@ -114,7 +115,7 @@ impl CallInfo {
                     i += 1;
                 }
                 while i < c - 1 {
-                    *self.r_register_mut(a + i) = Value::Nil;
+                    *self.r_register_mut(a + i) = Nil.into();
                     i += 1;
                 }
             }
@@ -125,10 +126,10 @@ impl CallInfo {
                 *self.r_register_mut(a) = self.r_register(b).clone();
             }
             Instruction::Add(a, b, c) => {
-                *self.r_register_mut(a) = self.rk_register(b) + self.rk_register(c);
+                *self.r_register_mut(a) = &self.rk_register(b) + &self.rk_register(c);
             }
             Instruction::Mul(a, b, c) => {
-                *self.r_register_mut(a) = self.rk_register(b) * self.rk_register(c);
+                *self.r_register_mut(a) = &self.rk_register(b) * &self.rk_register(c);
             }
             Instruction::Eq(a, b, c) => {
                 if (self.rk_register(b) == self.rk_register(c)) ^ (a == 1) {
@@ -144,7 +145,7 @@ impl CallInfo {
                 self.pc = (self.pc as i32 + s_bx) as usize;
             }
             Instruction::LoadBool(a, b, c) => {
-                *self.r_register_mut(a) = Value::Boolean(b == 1);
+                *self.r_register_mut(a) = Boolean(b == 1).into();
                 if c == 1 {
                     self.pc += 1;
                 }
@@ -163,18 +164,18 @@ impl CallInfo {
                     .r_register(b)
                     .clone()
                     .expect_table()?
-                    .get(self.rk_register(c))
+                    .get(&self.rk_register(c))
                     .clone();
             }
             Instruction::SetTable(a, b, c) => {
                 let b = self.rk_register(b).clone();
                 let c = self.rk_register(c).clone();
-                let table = self.r_register_mut(a).clone().expect_table()?;
+                let mut table = self.r_register_mut(a).clone().expect_table()?;
                 table.set(b, c);
             }
             Instruction::LoadNil(a, b) => {
                 for i in 0..b + 1 {
-                    *self.r_register_mut(a + i) = Value::Nil;
+                    *self.r_register_mut(a + i) = Nil.into();
                 }
             }
         }
@@ -184,14 +185,14 @@ impl CallInfo {
     fn r_registers(&self, index: u32, len: u32) -> &[Value] {
         &self.registers[index as usize..(index + len) as usize]
     }
-    fn k_register(&self, index: u32) -> &Value {
+    fn k_register(&self, index: u32) -> &ConstantValue {
         &self.function_info.constants[index as usize]
     }
-    fn rk_register(&self, index: i32) -> &Value {
+    fn rk_register(&self, index: i32) -> Value {
         if index >= 0 {
-            self.r_register(index as u32)
+            self.r_register(index as u32).clone()
         } else {
-            self.k_register((-1 - index) as u32)
+            self.k_register((-1 - index) as u32).clone().into()
         }
     }
     fn r_register(&self, index: u32) -> &Value {
@@ -212,9 +213,9 @@ impl VM {
         r
     }
     pub fn import_foreign(&mut self, foreign: Foreign) {
-        let mut last_table: &mut Table = self.up_value.clone().expect_table().unwrap();
+        let mut last_table = self.up_value.clone().expect_table().unwrap();
         for pre in &foreign.pre[0..foreign.pre.len() - 1] {
-            let key = Value::String(pre.to_string());
+            let key = LuaString(pre.to_string()).into();
             match last_table.get(&key).clone().expect_table() {
                 Ok(table) => {
                     last_table = table;
@@ -227,7 +228,7 @@ impl VM {
         }
         let name = foreign.pre.last().unwrap();
         last_table.set(
-            Value::String(name.to_string()),
+            LuaString(name.to_string()).into(),
             Value::LuaFunction(foreign.func),
         );
     }
@@ -251,7 +252,7 @@ impl VM {
                 math.sqrt = |args| {
                     let f = args[0].clone().expect_number()? as Float;
                     let r = f.sqrt() as Integer;
-                    Ok(vec![Value::Number(r)])
+                    Ok(vec![Number(r).into()])
                 }
             ),
         ] {
